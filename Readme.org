@@ -1,0 +1,25 @@
+* Host file Editor (hed)
+
+~hed~ is a tool to easily update en inspect the ~/etc/hosts~ file.
+
+** Add new entries
+
+#+begin_src shell
+hed add 127.0.0.1 something.local.dev
+#+end_src
+
+** Remove entries
+
+#+begin_src shell
+hed delete something.local.dev
+#+end_src
+
+Note: ~localhost~ is a "safe" host and can not be deleted.
+
+** Inspect the hosts file
+
+#+begin_src shell
+hed show
+#+end_src
+
+~show~ will color print the ~hosts~ file
