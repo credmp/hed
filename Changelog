@@ -1,0 +1,4 @@
+2021-10-04  Arjen Wiersma  <arjen@wiersma.org>
+
+	* src/main.rs: initial tool version - it only adds hosts now
+

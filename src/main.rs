@@ -14,10 +14,10 @@ use regex::Regex;
 fn main() -> Result<()> {
     color_eyre::install()?;
 
-    let matches = App::new("dotfiles")
-        .version("0.1")
+    let matches = App::new("hed")
+        .version("0.1-nightly")
         .author("Arjen Wiersma <arjen@wiersma.org")
-        .about("Version control all your dotfiles")
+        .about("Host EDitor")
         .setting(clap::AppSettings::ColoredHelp)
         .setting(clap::AppSettings::ArgRequiredElseHelp)
         .arg(
