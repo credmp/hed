@@ -3,3 +3,5 @@
 	* src/main.rs: initial tool version - it only adds hosts now and
 	will show the current file
 
+	Messed up the release building, new version
+
