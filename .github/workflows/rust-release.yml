@@ -2,8 +2,8 @@ name: Rust Release
 
 on:
   push:
-    branches:
-      - 'test'    
+    tags:
+      - '*'    
 
 env:
   CARGO_TERM_COLOR: always
