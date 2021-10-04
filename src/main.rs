@@ -1,11 +1,13 @@
 use clap::{App, Arg};
 use color_eyre::eyre::eyre;
 pub use color_eyre::eyre::Result;
-use std::fmt;
+use faccess::PathExt;
 use std::fs::File;
+use std::io::Write;
 use std::io::{self, BufRead, Error, ErrorKind};
 use std::net::IpAddr;
 use std::path::Path;
+use std::{fmt, fs};
 
 use regex::Regex;
 
@@ -91,41 +93,94 @@ fn get_filename(matches: &clap::ArgMatches) -> &str {
 fn get_hostentries(filename: &str) -> Result<Vec<Option<HostEntry>>> {
     match parse_file(filename) {
         Ok(x) => Ok(x),
-        Err(x) => Err(eyre!("Failed to parse file {}", x)),
+        Err(x) => Err(eyre!("{}", x)),
     }
+}
+
+fn write_file(filename: &str, hosts: &mut Vec<Option<HostEntry>>) -> Result<()> {
+    println!("Writing to file {}", filename);
+
+    let path = Path::new(filename);
+    if !path.writable() {
+        println!("Not writable {}, escalating", filename);
+        if let Err(e) = sudo::escalate_if_needed() {
+            return Err(eyre!("Failed to run as root! {}", e));
+        }
+    }
+
+    if let Err(e) = fs::copy(filename, format!("{}.bak", filename)) {
+        return Err(eyre!(
+            "Failed to write backup file, refusing to overwrite original ({})",
+            e
+        ));
+    }
+
+    let display = path.display();
+
+    // Open a file in write-only mode, returns `io::Result<File>`
+    let mut file = match File::create(&path) {
+        Err(why) => panic!("couldn't create {}: {}", display, why),
+        Ok(file) => file,
+    };
+
+    for item in hosts.iter_mut().flatten() {
+        if let Err(why) = writeln!(file, "{}", item) {
+            panic!("couldn't write to {}: {}", display, why)
+        }
+    }
+    Ok(())
 }
 
 fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), color_eyre::Report> {
     let ip_address: Option<IpAddr> = match ip {
-        Some(x) => Some(x.parse()?),
+        Some(x) => match x.parse() {
+            Ok(y) => Some(y),
+            Err(e) => return Err(eyre!(e)),
+        },
         _ => None,
     };
 
-    let hosts = get_hostentries(filename)?;
+    if hostname.is_none() {
+        return Err(eyre!("No hostname given"));
+    }
 
-    println!("Adding {:#?} {:#?}", hostname, ip_address);
+    let hosts = &mut get_hostentries(filename)?;
 
     // if IP address is given, find a matching hostentry to add a alias
     //    no ip? add new entry
     // if only a name is given, find a HostEntry already serving a tld
     //    if none are found, err
-    if ip_address.is_some() {
-        println!("Adding ip: {:#?}", ip_address);
+    if let Some(ip_a) = ip_address {
+        for item in hosts.iter_mut().flatten() {
+            let i = item;
 
-        for item in hosts {
-            if item.is_some() {
-                let mut i = item.unwrap();
-                if i.ip == ip_address {
-                    println!("Adding the same ip: {:#?}", ip_address);
-                    if !i.has_name(hostname.unwrap()) {
-                        i.add_alias(hostname.unwrap());
-                    }
+            if i.has_ip(&ip_a) {
+                if !i.has_name(hostname.unwrap()) {
+                    i.add_alias(hostname.unwrap());
+                    return write_file(filename, hosts);
                 }
             }
         }
-    }
 
-    Ok(())
+        hosts.push(Some(HostEntry {
+            ip: ip_address,
+            name: Some(hostname.unwrap().to_string()),
+            comment: None,
+            aliasses: None,
+        }));
+        write_file(filename, hosts)
+    } else {
+        for item in hosts.iter_mut().flatten() {
+            let i = item;
+
+            if i.can_resolve_host(hostname.unwrap()) && !i.has_name(hostname.unwrap()) {
+                i.add_alias(hostname.unwrap());
+                return write_file(filename, hosts);
+            }
+        }
+
+        Err(eyre!("Could not add host, no parent domain to resolve it."))
+    }
 }
 
 fn show(filename: &str) -> Result<(), color_eyre::Report> {
@@ -173,26 +228,30 @@ impl HostEntry {
     /// A subdomain is more specific, to rule out overlap, do not change it.
     /// TODO: allow reassigning of `name`
     fn can_resolve_host(&self, hostname: &str) -> bool {
-        hostname.ends_with(self.name.as_ref().unwrap().as_str())
+        if self.name.is_some() {
+            hostname.ends_with(self.name.as_ref().unwrap().as_str())
+        } else {
+            false
+        }
     }
 
     fn has_ip(&self, ip: &IpAddr) -> bool {
-        self.ip.as_ref().unwrap() == ip
+        if self.ip.is_some() {
+            self.ip.as_ref().unwrap() == ip
+        } else {
+            false
+        }
     }
 
     fn has_name(&self, hostname: &str) -> bool {
-        match &self.name {
-            Some(x) => {
-                if x.eq(hostname) {
-                    return true;
-                }
+        if let Some(x) = &self.name {
+            if x.eq(hostname) {
+                return true;
             }
-            _ => {}
         }
         match &self.aliasses {
             Some(y) => {
                 for z in y {
-                    println!("Checking {} against {}", z, hostname);
                     if z == hostname {
                         return true;
                     }
@@ -206,11 +265,13 @@ impl HostEntry {
     }
 
     pub(crate) fn add_alias(&mut self, hostname: &str) {
-        // if self.aliasses.is_some() {
-        //     let s = self.aliasses.as_ref().unwrap();
-        //     s.push(String::from(hostname));
-        // }
-        todo!()
+        if self.aliasses.is_some() {
+            let mut alias: Vec<String> = self.aliasses.as_ref().unwrap().clone();
+            alias.push(hostname.to_string());
+            self.aliasses = Some(alias);
+        } else {
+            self.aliasses = Some(vec![hostname.to_string()]);
+        }
     }
 }
 
@@ -286,8 +347,10 @@ fn parse_line(input: &str) -> Result<HostEntry, Box<dyn std::error::Error>> {
             _ => None,
         };
 
-        let name = caps.name("name").map(|t| String::from(t.as_str()));
-        let alias = caps.name("aliasses").map(|t| String::from(t.as_str()));
+        let name = caps.name("name").map(|t| String::from(t.as_str().trim()));
+        let alias = caps
+            .name("aliasses")
+            .map(|t| String::from(t.as_str().trim()));
         let alias_vec: Option<Vec<String>> = alias.map(|x| {
             x.split_whitespace()
                 .map(String::from)

@@ -8,5 +8,7 @@ edition = "2018"
 [dependencies]
 clap = "3.0.0-beta.4"
 color-eyre = "0.5.11"
+faccess = "0.2.3"
 regex = "1.5.4"
+sudo = "0.6.0"
 termion = "1.5.6"
