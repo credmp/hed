@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     color_eyre::install()?;
 
     let matches = App::new("hed")
-        .version("0.0.1.1-alpha")
+        .version("0.0.1.2-alpha")
         .author("Arjen Wiersma <arjen@wiersma.org")
         .about("Host EDitor")
         .setting(clap::AppSettings::ColoredHelp)
