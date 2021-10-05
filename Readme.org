@@ -25,3 +25,10 @@ hed show
 #+end_src
 
 ~show~ will parse and print the ~hosts~ file
+
+* Installation Instructions
+
+#+begin_src
+wget https://github.com/credmp/hed/releases/latest/download/hed
+chmod +x hed
+#+end_src
