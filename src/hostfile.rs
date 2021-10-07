@@ -6,6 +6,7 @@ use std::{
     net::IpAddr,
     path::Path,
 };
+use termion::color;
 
 use regex::Regex;
 
@@ -81,12 +82,9 @@ impl HostFile {
                         }
                     })
                     .collect();
-                return Ok(());
+                Ok(())
             }
-            Err(e) => Err(Box::new(Error::new(
-                ErrorKind::Other,
-                format!("Failed to parse file {}", e),
-            ))),
+            Err(e) => Err(Box::new(Error::new(ErrorKind::Other, e))),
         }
     }
 
@@ -135,5 +133,43 @@ impl HostFile {
                 comment: None,
             })
         }
+    }
+
+    pub(crate) fn remove_ip(&mut self, entry: Option<&str>) {
+        let ip: IpAddr = match entry.unwrap().parse() {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!("Invalid IP address given: {}", e);
+                return;
+            }
+        };
+
+        if self.entries.is_some() {
+            let en = self.entries.as_ref().unwrap().clone();
+            let c = en.len();
+            self.entries = Some(
+                en.into_iter()
+                    .filter(|he| {
+                        if he.ip.is_some() {
+                            he.ip.unwrap() != ip
+                        } else {
+                            true
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - self.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
+        } else {
+            eprintln!("No entries to delete");
+        }
+    }
+
+    pub(crate) fn remove_name(&self, _entry: Option<&str>) {
+        todo!()
     }
 }
