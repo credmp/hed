@@ -1,5 +1,7 @@
 use std::{fmt, net::IpAddr};
 
+use termion::color;
+
 #[derive(Debug, Clone)]
 pub struct HostEntry {
     pub ip: Option<IpAddr>,
@@ -91,14 +93,24 @@ impl PartialEq for HostEntry {
 impl fmt::Display for HostEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.ip == None && self.comment != None {
-            write!(f, "# {}", self.comment.as_ref().unwrap())
+            write!(
+                f,
+                "{}# {}{}",
+                color::Fg(color::LightBlue),
+                self.comment.as_ref().unwrap(),
+                color::Fg(color::Reset),
+            )
         } else if self.ip != None {
             write!(
                 f,
-                "{}\t{}\t{}",
+                "{}{}\t{}{}\t{}{}{}",
+                color::Fg(color::Cyan),
                 self.ip.unwrap(),
+                color::Fg(color::LightMagenta),
                 self.name.as_ref().unwrap(),
-                self.aliasses.as_ref().unwrap_or(&vec![]).join(" ")
+                color::Fg(color::LightGreen),
+                self.aliasses.as_ref().unwrap_or(&vec![]).join(" "),
+                color::Fg(color::Reset),
             )
         } else {
             write!(f, "")
