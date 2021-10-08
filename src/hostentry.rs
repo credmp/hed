@@ -73,6 +73,11 @@ impl HostEntry {
             self.aliasses = Some(vec![hostname.to_string()]);
         }
     }
+
+    pub(crate) fn can_delete(&self, name: &str) -> bool {
+        // name equals self.name and no aliasses
+        (self.name.is_some() && name == self.name.as_ref().unwrap()) && self.aliasses.is_none()
+    }
 }
 
 impl PartialEq for HostEntry {

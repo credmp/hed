@@ -169,7 +169,33 @@ impl HostFile {
         }
     }
 
-    pub(crate) fn remove_name(&self, _entry: Option<&str>) {
-        todo!()
+    pub(crate) fn remove_name(&mut self, name: Option<&str>) {
+        // if the name is the `name` and no aliasses, remove the entry
+
+        if self.entries.is_some() && name.is_some() {
+            let en = self.entries.as_ref().unwrap().clone();
+            let c = en.len();
+
+            if let Some(n) = name {
+                // filter with 'can delete'.
+                self.entries = Some(
+                    en.into_iter()
+                        .filter(|he| !he.can_delete(n))
+                        .collect::<Vec<_>>(),
+                );
+
+                // if the name is the `name`, find the shortest alias to take its place
+            }
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - self.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
+        } else {
+            eprintln!("No entries to delete");
+        }
+
+        // else the entry needs to be update, if it is there
     }
 }
