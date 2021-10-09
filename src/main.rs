@@ -229,6 +229,8 @@ fn delete(filename: &str, entry: Option<&str>) -> Result<(), color_eyre::Report>
 
     match hf.parse() {
         Ok(()) => {
+            let c = hf.entries.as_ref().unwrap().len();
+
             if is_ip {
                 hf.remove_ip(entry);
             } else {
@@ -238,6 +240,12 @@ fn delete(filename: &str, entry: Option<&str>) -> Result<(), color_eyre::Report>
             if let Err(x) = hf.write() {
                 return Err(eyre!("Error: {}", x));
             }
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - hf.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
 
             Ok(())
         }
