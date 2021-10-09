@@ -6,7 +6,6 @@ use std::{
     net::IpAddr,
     path::Path,
 };
-use termion::color;
 
 use regex::Regex;
 
@@ -31,11 +30,11 @@ impl HostFile {
     }
 
     pub fn write(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Writing to file {}", self.filename);
+        //println!("Writing to file {}", self.filename);
 
         let path = Path::new(&self.filename);
         if !path.writable() {
-            println!("Not writable {}, escalating", self.filename);
+            //println!("Not writable {}, escalating", self.filename);
             if let Err(e) = sudo::escalate_if_needed() {
                 return Err(Box::new(Error::new(
                     ErrorKind::Other,
@@ -71,7 +70,7 @@ impl HostFile {
     }
 
     pub fn parse(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Reading file {}", self.filename);
+        //println!("Reading file {}", self.filename);
         match read_lines(&self.filename) {
             Ok(lines) => {
                 self.entries = lines
@@ -146,7 +145,6 @@ impl HostFile {
 
         if self.entries.is_some() {
             let en = self.entries.as_ref().unwrap().clone();
-            let c = en.len();
             self.entries = Some(
                 en.into_iter()
                     .filter(|he| {
@@ -158,12 +156,6 @@ impl HostFile {
                     })
                     .collect::<Vec<_>>(),
             );
-            println!(
-                "Removed {}{}{} entries",
-                color::Fg(color::Green),
-                c - self.entries.as_ref().unwrap().len(),
-                color::Fg(color::Reset)
-            );
         } else {
             eprintln!("No entries to delete");
         }
@@ -174,7 +166,6 @@ impl HostFile {
 
         if self.entries.is_some() && name.is_some() {
             let en = self.entries.as_ref().unwrap().clone();
-            let c = en.len();
 
             if let Some(n) = name {
                 // // filter with 'can delete'.
@@ -186,7 +177,7 @@ impl HostFile {
 
                 // if the name is the `name`, find the shortest alias to take its place
                 let mut updated: Vec<HostEntry> = vec![];
-                for mut entry in self.entries.as_ref().unwrap().clone() {
+                for mut entry in en {
                     if !entry.can_delete(n) {
                         updated.push(entry.remove_hostname(n));
                     }
@@ -194,12 +185,6 @@ impl HostFile {
 
                 self.entries = Some(updated);
             }
-            println!(
-                "Removed {}{}{} entries",
-                color::Fg(color::Green),
-                c - self.entries.as_ref().unwrap().len(),
-                color::Fg(color::Reset)
-            );
         } else {
             eprintln!("No entries to delete");
         }
