@@ -269,4 +269,4 @@ Project Link: [https://github.com/credmp/hed](https://github.com/credmp/hed)
 [license-url]: https://github.com/credmp/hed/blob/master/LICENSE.txt
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/credmp
-[product-screenshot]: images/cast.git
+[product-screenshot]: images/cast.gif
