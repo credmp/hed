@@ -115,7 +115,7 @@ The tool is to be used as a regular user, it will elevate privileges when it req
    ```
 3. Make it executable
    ```sh
-   chmod +x ~/.local/bin
+   chmod +x ~/.local/bin/hed
    ```
 4. Ensure the `bin` directory is in your path
    ```sh
