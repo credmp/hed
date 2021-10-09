@@ -2,9 +2,15 @@
 name = "hed"
 version = "0.1.2"
 edition = "2018"
+license = "GPLv3"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
+categories = ["command-line-utilities"]
 repository = "https://github.com/credmp/hed"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Manage your hosts file from the command line."
+documentation = "https://github.com/credmp/hed"
+homepage = "https://github.com/credmp/hed#readme"
+keywords = ["hosts", "utility"]
+readme = "README.md"
 
 [[bin]]
 name = "hed"
@@ -20,9 +26,9 @@ termion = "1.5.6"
 [package.metadata.deb]
 maintainer = "Arjen Wiersma <arjen@wiersma.org>"
 copyright = "2021, Arjen Wiersma <arjen@wiersma.org>"
-license-file = ["LICENSE"]
+license-file = ["LICENSE", "0"]
 extended-description = """\
-A simple tool to easily manage you hosts file
+A tool to easily manage your hosts file from the command line.
 """
 depends = "$auto"
 section = "utility"
