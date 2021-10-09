@@ -54,6 +54,6 @@ jobs:
         GITHUB_TOKEN: ${{ github.token }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./target/release/${{ steps.package.outputs.package }}
+        asset_path: ./target/debian/${{ steps.package.outputs.package }}
         asset_name: ${{ steps.package.outputs.package }}
         asset_content_type: application/binary
