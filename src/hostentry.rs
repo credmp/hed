@@ -40,7 +40,7 @@ impl HostEntry {
                 color::Fg(color::Reset),
             );
         } else {
-            println!("");
+            println!();
         }
     }
 

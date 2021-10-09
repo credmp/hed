@@ -1,6 +1,6 @@
 [package]
 name = "hed"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
 repository = "https://github.com/credmp/hed"

@@ -19,9 +19,16 @@ jobs:
       run: cargo build --release --verbose
     - name: Run tests
       run: cargo test --verbose
+    - name: Install cargo-deb
+      run: cargo install cargo-deb
+    - name: Create debian package
+      run: cargo deb
     - name: version
       run: echo "::set-output name=version::$(./target/release/hed --version)"
-      id: version      
+      id: version
+    - name: package
+      run: echo "::set-output name=package::$(basename ./target/debian/*.deb)"
+      id: package
     - name: release
       uses: actions/create-release@v1
       id: create_release
@@ -40,4 +47,13 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./target/release/hed
         asset_name: hed
+        asset_content_type: application/binary
+    - name: upload debian package
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./target/release/${{ steps.package.outputs.package }}
+        asset_name: ${{ steps.package.outputs.package }}
         asset_content_type: application/binary
