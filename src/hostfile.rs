@@ -177,14 +177,22 @@ impl HostFile {
             let c = en.len();
 
             if let Some(n) = name {
-                // filter with 'can delete'.
-                self.entries = Some(
-                    en.into_iter()
-                        .filter(|he| !he.can_delete(n))
-                        .collect::<Vec<_>>(),
-                );
+                // // filter with 'can delete'.
+                // self.entries = Some(
+                //     en.into_iter()
+                //         .filter(|he| !he.can_delete(n))
+                //         .collect::<Vec<_>>(),
+                // );
 
                 // if the name is the `name`, find the shortest alias to take its place
+                let mut updated: Vec<HostEntry> = vec![];
+                for mut entry in self.entries.as_ref().unwrap().clone() {
+                    if !entry.can_delete(n) {
+                        updated.push(entry.remove_hostname(n));
+                    }
+                }
+
+                self.entries = Some(updated);
             }
             println!(
                 "Removed {}{}{} entries",

@@ -167,6 +167,10 @@ fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), c
                     return Err(eyre!("Error: {}", x));
                 }
                 return Ok(());
+            } else if i.has_name(hostname.unwrap()) {
+                eprintln!("Hostname already exists in the hostfile");
+                // It already exists
+                return Ok(());
             }
         }
 
@@ -183,7 +187,7 @@ fn show(filename: &str) -> Result<(), color_eyre::Report> {
     match hf.parse() {
         Ok(()) => {
             for item in hf.entries.unwrap_or_else(|| vec![]) {
-                println!("{}", item); //item.unwrap_or_else(HostEntry::empty))
+                item.color_print();
             }
 
             Ok(())
@@ -230,6 +234,11 @@ fn delete(filename: &str, entry: Option<&str>) -> Result<(), color_eyre::Report>
             } else {
                 hf.remove_name(entry);
             }
+
+            if let Err(x) = hf.write() {
+                return Err(eyre!("Error: {}", x));
+            }
+
             Ok(())
         }
         Err(x) => Err(eyre!("Failed to parse file {}", x)),
