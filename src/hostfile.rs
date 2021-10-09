@@ -6,6 +6,7 @@ use std::{
     net::IpAddr,
     path::Path,
 };
+use termion::color;
 
 use regex::Regex;
 
@@ -81,12 +82,9 @@ impl HostFile {
                         }
                     })
                     .collect();
-                return Ok(());
+                Ok(())
             }
-            Err(e) => Err(Box::new(Error::new(
-                ErrorKind::Other,
-                format!("Failed to parse file {}", e),
-            ))),
+            Err(e) => Err(Box::new(Error::new(ErrorKind::Other, e))),
         }
     }
 
@@ -135,5 +133,77 @@ impl HostFile {
                 comment: None,
             })
         }
+    }
+
+    pub(crate) fn remove_ip(&mut self, entry: Option<&str>) {
+        let ip: IpAddr = match entry.unwrap().parse() {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!("Invalid IP address given: {}", e);
+                return;
+            }
+        };
+
+        if self.entries.is_some() {
+            let en = self.entries.as_ref().unwrap().clone();
+            let c = en.len();
+            self.entries = Some(
+                en.into_iter()
+                    .filter(|he| {
+                        if he.ip.is_some() {
+                            he.ip.unwrap() != ip
+                        } else {
+                            true
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            );
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - self.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
+        } else {
+            eprintln!("No entries to delete");
+        }
+    }
+
+    pub(crate) fn remove_name(&mut self, name: Option<&str>) {
+        // if the name is the `name` and no aliasses, remove the entry
+
+        if self.entries.is_some() && name.is_some() {
+            let en = self.entries.as_ref().unwrap().clone();
+            let c = en.len();
+
+            if let Some(n) = name {
+                // // filter with 'can delete'.
+                // self.entries = Some(
+                //     en.into_iter()
+                //         .filter(|he| !he.can_delete(n))
+                //         .collect::<Vec<_>>(),
+                // );
+
+                // if the name is the `name`, find the shortest alias to take its place
+                let mut updated: Vec<HostEntry> = vec![];
+                for mut entry in self.entries.as_ref().unwrap().clone() {
+                    if !entry.can_delete(n) {
+                        updated.push(entry.remove_hostname(n));
+                    }
+                }
+
+                self.entries = Some(updated);
+            }
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - self.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
+        } else {
+            eprintln!("No entries to delete");
+        }
+
+        // else the entry needs to be update, if it is there
     }
 }

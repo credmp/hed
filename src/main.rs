@@ -3,6 +3,7 @@ use std::net::IpAddr;
 use clap::{App, Arg};
 use color_eyre::eyre::eyre;
 pub use color_eyre::eyre::Result;
+use termion::color;
 
 use crate::{hostentry::HostEntry, hostfile::HostFile};
 
@@ -54,6 +55,17 @@ fn main() -> Result<()> {
                         .about("Optional: ip address of the hostname"),
                 ),
         )
+        .subcommand(
+            App::new("delete")
+                .about("Delete a host from your hostfile")
+                .version("0.1")
+                .arg(
+                    Arg::new("entry")
+                        .index(1)
+                        .required(true)
+                        .about("IP or Hostname to remove"),
+                ),
+        )
         .get_matches();
 
     let res = match matches.subcommand_name() {
@@ -70,6 +82,13 @@ fn main() -> Result<()> {
                 None
             };
             add(get_filename(&matches), mymatches.value_of("hostname"), ip)
+        }
+        Some("delete") => {
+            let mymatches = matches
+                .subcommand_matches("delete")
+                .expect("Cannot be a subcommand and not be a subcommand");
+
+            delete(get_filename(&matches), mymatches.value_of("entry"))
         }
         Some(x) => {
             println!("Unimplemented command {} called", x);
@@ -89,13 +108,6 @@ fn get_filename(matches: &clap::ArgMatches) -> &str {
         _ => "/etc/hosts",
     }
 }
-
-// fn get_hostentries(filename: &str) -> Result<Vec<Option<HostEntry>>> {
-//     match parse_file(filename) {
-//         Ok(x) => Ok(x),
-//         Err(x) => Err(eyre!("{}", x)),
-//     }
-// }
 
 fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), color_eyre::Report> {
     let ip_address: Option<IpAddr> = match ip {
@@ -155,6 +167,10 @@ fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), c
                     return Err(eyre!("Error: {}", x));
                 }
                 return Ok(());
+            } else if i.has_name(hostname.unwrap()) {
+                eprintln!("Hostname already exists in the hostfile");
+                // It already exists
+                return Ok(());
             }
         }
 
@@ -171,10 +187,10 @@ fn show(filename: &str) -> Result<(), color_eyre::Report> {
     match hf.parse() {
         Ok(()) => {
             for item in hf.entries.unwrap_or_else(|| vec![]) {
-                println!("{}", item); //item.unwrap_or_else(HostEntry::empty))
+                item.color_print();
             }
 
-            return Ok(());
+            Ok(())
         }
         Err(x) => Err(eyre!("Failed to parse file {}", x)),
     }
@@ -188,7 +204,41 @@ fn verify(filename: &str) -> Result<(), color_eyre::Report> {
 
     match hf.parse() {
         Ok(()) => {
-            println!("Hostsfile is readable and contains  entries");
+            println!(
+                "Hostsfile is readable and contains {}{}{} entries.",
+                color::Fg(color::Green),
+                hf.entries.unwrap_or_else(Vec::new).len(),
+                color::Fg(color::Reset),
+            );
+            Ok(())
+        }
+        Err(x) => Err(eyre!("Failed to parse file {}", x)),
+    }
+}
+
+fn delete(filename: &str, entry: Option<&str>) -> Result<(), color_eyre::Report> {
+    let mut hf = HostFile {
+        filename: filename.to_string(),
+        entries: None,
+    };
+
+    let is_ip = match entry.unwrap().parse::<IpAddr>() {
+        Ok(_e) => true,
+        Err(_e) => false,
+    };
+
+    match hf.parse() {
+        Ok(()) => {
+            if is_ip {
+                hf.remove_ip(entry);
+            } else {
+                hf.remove_name(entry);
+            }
+
+            if let Err(x) = hf.write() {
+                return Err(eyre!("Error: {}", x));
+            }
+
             Ok(())
         }
         Err(x) => Err(eyre!("Failed to parse file {}", x)),
