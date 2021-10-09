@@ -22,12 +22,12 @@ maintainer = "Arjen Wiersma <arjen@wiersma.org>"
 copyright = "2021, Arjen Wiersma <arjen@wiersma.org>"
 license-file = ["LICENSE"]
 extended-description = """\
-A simple tool to easily manager you hosts file
+A simple tool to easily manage you hosts file
 """
 depends = "$auto"
 section = "utility"
 priority = "optional"
 assets = [
     ["target/release/hed", "usr/bin/", "755"],
-    ["Readme.org", "usr/share/doc/hed/Readme.org", "644"],
+    ["README.md", "usr/share/doc/hed/README.md", "644"],
 ]
