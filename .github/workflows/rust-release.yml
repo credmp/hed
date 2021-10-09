@@ -2,8 +2,8 @@ name: Rust Release
 
 on:
   push:
-    branches:
-      - 'test'    
+    tags:
+      - '*'    
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,10 +27,10 @@ jobs:
       id: create_release
       with:
         draft: false
-        prerelease: false
+        prerelease: true
         release_name: ${{ steps.version.outputs.version }}
         tag_name: ${{ github.ref }}
-        body_path: Changelog
+        body_path: ChangeLog
       env:
         GITHUB_TOKEN: ${{ github.token }}
     - name: upload linux artifact
