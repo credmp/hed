@@ -56,6 +56,23 @@ fn main() -> Result<()> {
                 ),
         )
         .subcommand(
+            App::new("replace")
+                .about("Replace the IP address for a hostname in your hostfile")
+                .version("0.1")
+                .arg(
+                    Arg::new("hostname")
+                        .index(1)
+                        .required(true)
+                        .about("Hostname of the entry to replace"),
+                )
+                .arg(
+                    Arg::new("ip")
+                        .index(2)
+                        .required(true)
+                        .about("IP address to change to"),
+                ),
+        )
+        .subcommand(
             App::new("delete")
                 .about("Delete a host from your hostfile")
                 .version("0.1")
@@ -83,6 +100,18 @@ fn main() -> Result<()> {
             };
             add(get_filename(&matches), mymatches.value_of("hostname"), ip)
         }
+        Some("replace") => {
+            let mymatches = matches
+                .subcommand_matches("replace")
+                .expect("Cannot be a subcommand and not be a subcommand");
+
+            let ip = if mymatches.is_present("ip") {
+                mymatches.value_of("ip")
+            } else {
+                None
+            };
+            replace(get_filename(&matches), mymatches.value_of("hostname"), ip)
+        }
         Some("delete") => {
             let mymatches = matches
                 .subcommand_matches("delete")
@@ -109,6 +138,7 @@ fn get_filename(matches: &clap::ArgMatches) -> &str {
     }
 }
 
+/// Add a new entry to the hosts file
 fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), color_eyre::Report> {
     let ip_address: Option<IpAddr> = match ip {
         Some(x) => match x.parse() {
@@ -145,6 +175,18 @@ fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), c
                     return Err(eyre!("Error: {}", x));
                 }
                 return Ok(());
+            } else if i.has_ip(&ip_a) {
+                println!("An ip address with this name already exists:");
+                // TODO: give this its own writer
+                i.color_print();
+                return Err(eyre!("An ip address with this name already exists."));
+            } else if !i.has_ip(&ip_a) && i.has_name(hostname.unwrap()) {
+                println!("An entry exists with the hostname, but with a different IP:");
+                // TODO: give this its own writer
+                i.color_print();
+                return Err(eyre!(
+                    "An entry exists with the hostname, but with a different IP:"
+                ));
             }
         }
         hf.add_host_entry(HostEntry {
@@ -178,6 +220,48 @@ fn add(filename: &str, hostname: Option<&str>, ip: Option<&str>) -> Result<(), c
     }
 }
 
+/// Replace the IP address for a record, will include all of the aliasses as well
+fn replace(
+    filename: &str,
+    hostname: Option<&str>,
+    ip: Option<&str>,
+) -> Result<(), color_eyre::Report> {
+    let ip_address: Option<IpAddr> = match ip {
+        Some(x) => match x.parse() {
+            Ok(y) => Some(y),
+            Err(e) => return Err(eyre!(e)),
+        },
+        _ => None,
+    };
+
+    if hostname.is_none() {
+        return Err(eyre!("No hostname given"));
+    }
+
+    let mut hf = HostFile {
+        filename: filename.to_string(),
+        entries: None,
+    };
+
+    if let Err(x) = hf.parse() {
+        return Err(eyre!("Failed to parse file {}", x));
+    }
+
+    for item in hf.entries.iter_mut().flatten() {
+        let i = item;
+
+        if i.name.is_some() && i.name.as_ref().unwrap() == hostname.unwrap() {
+            i.ip = ip_address;
+            if let Err(x) = hf.write() {
+                return Err(eyre!("Error: {}", x));
+            }
+            return Ok(());
+        }
+    }
+    Ok(())
+}
+
+/// Color print the hosts file
 fn show(filename: &str) -> Result<(), color_eyre::Report> {
     let mut hf = HostFile {
         filename: filename.to_string(),
@@ -196,6 +280,7 @@ fn show(filename: &str) -> Result<(), color_eyre::Report> {
     }
 }
 
+/// Verify that the host file is parsable
 fn verify(filename: &str) -> Result<(), color_eyre::Report> {
     let mut hf = HostFile {
         filename: filename.to_string(),
@@ -216,6 +301,7 @@ fn verify(filename: &str) -> Result<(), color_eyre::Report> {
     }
 }
 
+/// Delete an name or IP address from the hostsfile
 fn delete(filename: &str, entry: Option<&str>) -> Result<(), color_eyre::Report> {
     let mut hf = HostFile {
         filename: filename.to_string(),
