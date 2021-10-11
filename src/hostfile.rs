@@ -6,9 +6,11 @@ use std::{
     net::IpAddr,
     path::Path,
 };
+use termion::color;
 
 use regex::Regex;
 
+use crate::errors::ApplicationError;
 use crate::hostentry::HostEntry;
 use crate::utils::read_lines;
 
@@ -190,5 +192,145 @@ impl HostFile {
         }
 
         // else the entry needs to be update, if it is there
+    }
+
+    /// Add a new entry to the hosts file
+    pub(crate) fn add(
+        &mut self,
+        hostname: Option<&str>,
+        ip: Option<&str>,
+    ) -> Result<(), crate::errors::ApplicationError> {
+        let ip_address: Option<IpAddr> = match ip {
+            Some(x) => match x.parse() {
+                Ok(y) => Some(y),
+                Err(_e) => return Err(ApplicationError::IpAddressConversion()),
+            },
+            _ => None,
+        };
+
+        if hostname.is_none() {
+            return Err(ApplicationError::NoHostnameGiven());
+        }
+
+        // if IP address is given, find a matching hostentry to add a alias
+        //    no ip? add new entry
+        // if only a name is given, find a HostEntry already serving a tld
+        //    if none are found, err
+        if let Some(ip_a) = ip_address {
+            for item in self.entries.iter_mut().flatten() {
+                let i = item;
+
+                if i.has_ip(&ip_a) && !i.has_name(hostname.unwrap()) {
+                    i.add_alias(hostname.unwrap());
+                    if let Err(e) = self.write() {
+                        return Err(ApplicationError::HostFileUnwritable(e.to_string()));
+                    }
+                    return Ok(());
+                } else if i.has_ip(&ip_a) {
+                    return Err(ApplicationError::IpAlreadyInUse(format!("{}", i)));
+                } else if !i.has_ip(&ip_a) && i.has_name(hostname.unwrap()) {
+                    return Err(ApplicationError::HostnameAlreadyInUse(format!("{}", i)));
+                }
+            }
+            self.add_host_entry(HostEntry {
+                ip: ip_address,
+                name: Some(hostname.unwrap().to_string()),
+                comment: None,
+                aliasses: None,
+            });
+            if let Err(e) = self.write() {
+                return Err(ApplicationError::HostFileUnwritable(e.to_string()));
+            }
+            Ok(())
+        } else {
+            for item in self.entries.iter_mut().flatten() {
+                let i = item;
+
+                if i.can_resolve_host(hostname.unwrap()) && !i.has_name(hostname.unwrap()) {
+                    i.add_alias(hostname.unwrap());
+                    if let Err(e) = self.write() {
+                        return Err(ApplicationError::HostFileUnwritable(e.to_string()));
+                    }
+                    return Ok(());
+                } else if i.has_name(hostname.unwrap()) {
+                    eprintln!("Hostname already exists in the hostfile");
+                    // It already exists
+                    return Ok(());
+                }
+            }
+
+            Err(ApplicationError::NoParentDomain())
+        }
+    }
+
+    /// Replace the IP address for a record, will include all of the aliasses as well
+    pub(crate) fn replace(
+        &mut self,
+        hostname: Option<&str>,
+        ip: Option<&str>,
+    ) -> Result<(), ApplicationError> {
+        let ip_address: Option<IpAddr> = match ip {
+            Some(x) => match x.parse() {
+                Ok(y) => Some(y),
+                Err(_e) => return Err(ApplicationError::IpAddressConversion()),
+            },
+            _ => None,
+        };
+
+        if hostname.is_none() {
+            return Err(ApplicationError::FileABugReport());
+        }
+
+        for item in self.entries.iter_mut().flatten() {
+            let i = item;
+
+            if i.name.is_some() && i.name.as_ref().unwrap() == hostname.unwrap() {
+                i.ip = ip_address;
+                if let Err(e) = self.write() {
+                    return Err(ApplicationError::HostFileUnwritable(e.to_string()));
+                }
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
+    /// Color print the hosts file
+    pub(crate) fn show(&self) -> Result<(), ApplicationError> {
+        if self.entries.is_some() {
+            for item in self.entries.as_ref().unwrap() {
+                item.color_print();
+            }
+        }
+        Ok(())
+    }
+
+    /// Delete an name or IP address from the hostsfile
+    pub(crate) fn delete(&mut self, entry: Option<&str>) -> Result<(), ApplicationError> {
+        let is_ip = match entry.unwrap().parse::<IpAddr>() {
+            Ok(_e) => true,
+            Err(_e) => false,
+        };
+
+        let c = self.entries.as_ref().unwrap().len();
+
+        if is_ip {
+            self.remove_ip(entry);
+        } else {
+            self.remove_name(entry);
+        }
+
+        if let Err(e) = self.write() {
+            return Err(ApplicationError::HostFileUnwritable(e.to_string()));
+        }
+
+        println!(
+            "Removed {}{}{} entries",
+            color::Fg(color::Green),
+            c - self.entries.as_ref().unwrap().len(),
+            color::Fg(color::Reset)
+        );
+
+        Ok(())
     }
 }
