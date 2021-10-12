@@ -1,4 +1,4 @@
-use std::{fmt, net::IpAddr};
+use std::{fmt, io::Write, net::IpAddr};
 
 use termion::color;
 
@@ -20,28 +20,39 @@ impl HostEntry {
         }
     }
 
-    pub fn color_print(&self) {
+    pub fn color_print<W: Write>(&self, f: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         if self.ip == None && self.comment != None {
-            println!(
+            writeln!(
+                f,
                 "{}# {}{}",
                 color::Fg(color::LightBlue),
                 self.comment.as_ref().unwrap(),
                 color::Fg(color::Reset),
-            );
+            )?;
         } else if self.ip != None {
-            println!(
-                "{}{}\t{}{}\t{}{}{}",
+            write!(
+                f,
+                "{}{}\t{}{}\t{}{}",
                 color::Fg(color::Cyan),
                 self.ip.unwrap(),
                 color::Fg(color::LightMagenta),
                 self.name.as_ref().unwrap(),
                 color::Fg(color::LightGreen),
-                self.aliasses.as_ref().unwrap_or(&vec![]).join(" "),
-                color::Fg(color::Reset),
-            );
+                self.aliasses.as_ref().unwrap_or(&vec![]).join(" ")
+            )?;
+            if self.comment.is_some() {
+                write!(
+                    f,
+                    "{}\t# {}",
+                    color::Fg(color::LightBlue),
+                    self.comment.as_ref().unwrap()
+                )?;
+            }
+            writeln!(f, "{}", color::Fg(color::Reset))?;
         } else {
-            println!();
+            writeln!(f)?;
         }
+        Ok(())
     }
 
     /// Checks if the `name` of `HostEntry` can result the passed `hostname`.
@@ -98,7 +109,7 @@ impl HostEntry {
         }
     }
 
-    /// Indicate if the entire hostname can be removed if the name is
+    /// Indicate if the entire hostentry can be removed if the name is
     /// removed. Can only occur if the aliasses are empty.
     pub(crate) fn can_delete(&self, name: &str) -> bool {
         // name equals self.name and no aliasses
@@ -132,7 +143,7 @@ impl HostEntry {
                         ip: self.ip,
                         name: Some(shortest),
                         aliasses: Some(others),
-                        comment: None,
+                        comment: self.comment.clone(),
                     };
                 } else {
                     // name is the same, and no aliasses... should not happen
@@ -150,7 +161,7 @@ impl HostEntry {
                     ip: self.ip,
                     name: self.name.clone(),
                     aliasses: Some(others),
-                    comment: None,
+                    comment: self.comment.clone(),
                 };
             }
         }
@@ -178,13 +189,22 @@ impl fmt::Display for HostEntry {
         if self.ip == None && self.comment != None {
             write!(f, "# {}", self.comment.as_ref().unwrap(),)
         } else if self.ip != None {
-            write!(
-                f,
-                "{}\t{}\t{}",
-                self.ip.unwrap(),
-                self.name.as_ref().unwrap(),
-                self.aliasses.as_ref().unwrap_or(&vec![]).join(" "),
-            )
+            if let Err(e) = write!(f, "{}\t{}", self.ip.unwrap(), self.name.as_ref().unwrap(),) {
+                return Err(e);
+            }
+            if self.aliasses.is_some() {
+                write!(
+                    f,
+                    "\t{}",
+                    self.aliasses.as_ref().unwrap_or(&vec![]).join(" ")
+                )
+                .expect("Initial write succeeded, this should too");
+            }
+            if self.comment.is_some() {
+                write!(f, "\t# {}", self.comment.as_ref().unwrap())
+                    .expect("Initial write succeeded, this should too");
+            }
+            Ok(())
         } else {
             write!(f, "")
         }
@@ -205,6 +225,86 @@ mod test {
 
         assert_eq!("127.0.0.1".parse(), Ok(localhost_v4));
         assert_eq!("::1".parse(), Ok(localhost_v6));
+    }
+
+    #[test]
+    fn test_remove_hostname() {
+        let ip = "127.0.0.1".parse().expect("Should parse localhost");
+        let mut he = HostEntry {
+            ip: Some(ip),
+            name: Some(String::from("arjenwiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+
+        assert!(he.can_delete("arjenwiersma.nl"));
+        assert_eq!(he.remove_hostname("arjenwiersma.nl"), HostEntry::empty());
+
+        he.aliasses = Some(vec![
+            String::from("demo.arjenwiersma.nl"),
+            String::from("d.arjenwiersma.nl"),
+        ]);
+
+        assert!(!he.can_delete("arjenwiersma.nl"));
+        assert_eq!(
+            he.remove_hostname("arjenwiersma.nl"),
+            HostEntry {
+                ip: Some(ip),
+                name: Some(String::from("d.arjenwiersma.nl")),
+                aliasses: Some(vec![String::from("demo.arjenwiersma.nl")]),
+                comment: None,
+            }
+        );
+    }
+
+    #[test]
+    fn test_add_alias() {
+        let ip = "127.0.0.1".parse().expect("Should parse localhost");
+        let mut he = HostEntry {
+            ip: Some(ip),
+            name: Some(String::from("arjenwiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+
+        he.add_alias("test.nl");
+        assert_eq!(he.aliasses.unwrap().len(), 1);
+    }
+    #[test]
+    fn test_display() {
+        let ip = "127.0.0.1".parse().expect("Should parse localhost");
+        let mut he = HostEntry {
+            ip: Some(ip),
+            name: Some(String::from("arjenwiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+        assert_eq!("127.0.0.1\tarjenwiersma.nl", format!("{}", he));
+        he.comment = Some(String::from("a comment"));
+        assert_eq!("127.0.0.1\tarjenwiersma.nl\t# a comment", format!("{}", he));
+        he.aliasses = Some(vec![String::from("host1"), String::from("host2")]);
+        assert_eq!(
+            "127.0.0.1\tarjenwiersma.nl\thost1 host2\t# a comment",
+            format!("{}", he)
+        );
+        he.comment = None;
+        assert_eq!("127.0.0.1\tarjenwiersma.nl\thost1 host2", format!("{}", he));
+    }
+
+    #[test]
+    fn test_has_ip() {
+        let ip = "127.0.0.1".parse().expect("Should parse localhost");
+        let he = HostEntry {
+            ip: Some(ip),
+            name: None,
+            aliasses: None,
+            comment: None,
+        };
+
+        let ip2 = "127.0.0.1".parse().expect("Should parse localhost");
+        assert!(he.has_ip(&ip2));
+        let ip3 = "127.0.1.1".parse().expect("Should parse localhost");
+        assert!(!he.has_ip(&ip3));
     }
 
     #[test]
@@ -234,5 +334,18 @@ mod test {
         assert!(!ahe.has_name("arjen2.wiersma.nl"));
         assert!(!ahe.has_name("wiersma.nl"));
         assert!(ahe.has_name("jelle.wiersma.nl"));
+    }
+
+    #[test]
+    fn test_can_resolve() {
+        let he = HostEntry {
+            ip: None,
+            name: Some(String::from("wiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+
+        assert!(he.can_resolve_host("arjen.wiersma.nl"));
+        assert!(!he.can_resolve_host("piet.nl"));
     }
 }

@@ -114,7 +114,13 @@ fn main() {
             } else {
                 None
             };
-            hf.add(mymatches.value_of("hostname"), ip)
+            match hf.add(mymatches.value_of("hostname"), ip) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some("replace") => {
             let mymatches = matches
@@ -126,14 +132,26 @@ fn main() {
             } else {
                 None
             };
-            hf.replace(mymatches.value_of("hostname"), ip)
+            match hf.replace(mymatches.value_of("hostname"), ip) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some("delete") => {
             let mymatches = matches
                 .subcommand_matches("delete")
                 .expect("Cannot be a subcommand and not be a subcommand");
 
-            hf.delete(mymatches.value_of("entry"))
+            match hf.delete(mymatches.value_of("entry")) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some(x) => {
             println!("Unimplemented command {} called", x);

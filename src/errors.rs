@@ -9,6 +9,9 @@ pub enum ApplicationError {
     #[error("Failed to write the hostfile back to the file. Reason: {0}")]
     HostFileUnwritable(String),
 
+    #[error("Failed to write backup file, refusing to overwrite original ({0})")]
+    BackupFileWriteFailed(String),
+
     #[error("Failed to convert the IP address, this is normally due to a typo of perhaps you gave a hostname instead?")]
     IpAddressConversion(),
 

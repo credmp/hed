@@ -1,7 +1,9 @@
-127.0.0.1       localhost
-127.0.1.1       kali
+127.0.0.1	localhost	
+127.0.1.1	kali		# some snarky comment
+10.10.1.1	forge.htb	admin.forge.htb
+10.10.1.2	fudge.htb	admin.fudge.htb	# The magnificent fudge machine
 
 # The following lines are desirable for IPv6 capable hosts
-::1     localhost ip6-localhost ip6-loopback
-ff02::1 ip6-allnodes
-ff02::2 ip6-allrouters
+::1	localhost	ip6-localhost ip6-loopback
+ff02::1	ip6-allnodes	
+ff02::2	ip6-allrouters	

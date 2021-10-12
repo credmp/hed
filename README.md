@@ -23,7 +23,7 @@
 [![Issues][issues-shield]][issues-url]
 [![GPLv3 License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
-
+[![codecov_shield]][codecov_profile]
 
 
 <!-- PROJECT LOGO -->
@@ -270,3 +270,11 @@ Project Link: [https://github.com/credmp/hed](https://github.com/credmp/hed)
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/credmp
 [product-screenshot]: images/cast.gif
+[codecov_shield]: https://img.shields.io/codecov/c/github/credmp/hed/develop?style=for-the-badge&token=61TTWQXFI3
+[codecov_profile]: https://codecov.io/gh/credmp/hed
+
+<!--
+
+https://codecov.io/gh/credmp/hed/branch/develop/graph/badge.svg?token=61TTWQXFI3
+
+-->
