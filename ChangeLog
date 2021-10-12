@@ -1,3 +1,13 @@
+2021-10-12  Arjen Wiersma  <arjen@wiersma.org>
+
+	* src/hostfile.rs: handle end of line comments in host entries
+
+2021-10-11  Arjen Wiersma  <arjen@wiersma.org>
+
+	* src/main.rs: Humane error messages
+
+	* src/hostfile.rs: Moved all hostfile methods from main into the struct
+
 2021-10-04  Arjen Wiersma  <arjen@wiersma.org>
 
 	* src/main.rs: initial tool version - it only adds hosts now and

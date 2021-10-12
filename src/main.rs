@@ -1,11 +1,13 @@
-use std::{io::Error, io::ErrorKind, net::IpAddr, process::exit};
+use std::process::exit;
 
 use clap::{App, Arg};
 pub use color_eyre::eyre::Result;
+use errors::ApplicationError;
 use termion::color;
 
-use crate::{hostentry::HostEntry, hostfile::HostFile};
+use crate::hostfile::HostFile;
 
+pub mod errors;
 pub mod hostentry;
 pub mod hostfile;
 pub mod utils;
@@ -101,7 +103,7 @@ fn main() {
 
     let res = match matches.subcommand_name() {
         Some("verify") => verify(hf),
-        Some("show") => show(hf),
+        Some("show") => hf.show(),
         Some("add") => {
             let mymatches = matches
                 .subcommand_matches("add")
@@ -112,7 +114,13 @@ fn main() {
             } else {
                 None
             };
-            add(hf, mymatches.value_of("hostname"), ip)
+            match hf.add(mymatches.value_of("hostname"), ip) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some("replace") => {
             let mymatches = matches
@@ -124,14 +132,26 @@ fn main() {
             } else {
                 None
             };
-            replace(hf, mymatches.value_of("hostname"), ip)
+            match hf.replace(mymatches.value_of("hostname"), ip) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some("delete") => {
             let mymatches = matches
                 .subcommand_matches("delete")
                 .expect("Cannot be a subcommand and not be a subcommand");
 
-            delete(hf, mymatches.value_of("entry"))
+            match hf.delete(mymatches.value_of("entry")) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }
         }
         Some(x) => {
             println!("Unimplemented command {} called", x);
@@ -161,206 +181,14 @@ fn get_filename(matches: &clap::ArgMatches) -> &str {
     }
 }
 
-/// Add a new entry to the hosts file
-fn add(
-    mut hf: HostFile,
-    hostname: Option<&str>,
-    ip: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let ip_address: Option<IpAddr> = match ip {
-        Some(x) => match x.parse() {
-            Ok(y) => Some(y),
-            Err(e) => return Err(Box::new(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "Failed to convert the IP address, this is normally due to a typo of perhaps you gave a hostname instead? Error description: {}",
-                    e
-                ),
-            ))),
-        },
-        _ => None,
-    };
-
-    if hostname.is_none() {
-        return Err(Box::new(Error::new(
-            ErrorKind::InvalidInput,
-            "No hostname was given to be added to the hosts file. You should not see this message, if you do, please log an bug report at https://github.com/credmp/hed",
-        )));
-    }
-
-    // if IP address is given, find a matching hostentry to add a alias
-    //    no ip? add new entry
-    // if only a name is given, find a HostEntry already serving a tld
-    //    if none are found, err
-    if let Some(ip_a) = ip_address {
-        for item in hf.entries.iter_mut().flatten() {
-            let i = item;
-
-            if i.has_ip(&ip_a) && !i.has_name(hostname.unwrap()) {
-                i.add_alias(hostname.unwrap());
-                if let Err(e) = hf.write() {
-                    return Err(Box::new(Error::new(
-                        ErrorKind::PermissionDenied,
-                        format!("Failed to write the hostfile back to the file. The error message is: {}", e),
-                    )));
-                }
-                return Ok(());
-            } else if i.has_ip(&ip_a) {
-                return Err(Box::new(Error::new(
-                    ErrorKind::Other,
-                    format!("An ip address with this name already exists:\n{}", i),
-                )));
-            } else if !i.has_ip(&ip_a) && i.has_name(hostname.unwrap()) {
-                return Err(Box::new(Error::new(
-                    ErrorKind::Other,
-                    format!(
-                        "An entry exists with the hostname, but with a different IP:\n{}",
-                        i
-                    ),
-                )));
-            }
-        }
-        hf.add_host_entry(HostEntry {
-            ip: ip_address,
-            name: Some(hostname.unwrap().to_string()),
-            comment: None,
-            aliasses: None,
-        });
-        if let Err(e) = hf.write() {
-            return Err(Box::new(Error::new(
-                ErrorKind::PermissionDenied,
-                format!(
-                    "Failed to write the hostfile back to the file. The error message is: {}",
-                    e
-                ),
-            )));
-        }
-        Ok(())
-    } else {
-        for item in hf.entries.iter_mut().flatten() {
-            let i = item;
-
-            if i.can_resolve_host(hostname.unwrap()) && !i.has_name(hostname.unwrap()) {
-                i.add_alias(hostname.unwrap());
-                if let Err(e) = hf.write() {
-                    return Err(Box::new(Error::new(
-                        ErrorKind::PermissionDenied,
-                        format!("Failed to write the hostfile back to the file. The error message is: {}", e),
-                    )));
-                }
-                return Ok(());
-            } else if i.has_name(hostname.unwrap()) {
-                eprintln!("Hostname already exists in the hostfile");
-                // It already exists
-                return Ok(());
-            }
-        }
-
-        Err(Box::new(Error::new(
-            ErrorKind::InvalidData,
-            "Could not add host, no parent domain to resolve it. This means that no parent domain exists for the given hostname, try adding it with an IP address, it will be the first entry for this host.\n\nFor instance, if an entry exists called demo.example.com I can not add example.com, as the subdomain is not a parent domain, the other way around will work."
-        )))
-    }
-}
-
-/// Replace the IP address for a record, will include all of the aliasses as well
-fn replace(
-    mut hf: HostFile,
-    hostname: Option<&str>,
-    ip: Option<&str>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let ip_address: Option<IpAddr> = match ip {
-        Some(x) => match x.parse() {
-            Ok(y) => Some(y),
-            Err(e) => return Err(Box::new(Error::new(
-                ErrorKind::InvalidData,
-                format!(
-                    "Failed to convert the IP address, this is normally due to a typo of perhaps you gave a hostname instead? Error description: {}",
-                    e
-                ),
-            ))),
-        },
-        _ => None,
-    };
-
-    if hostname.is_none() {
-        return Err(Box::new(Error::new(
-            ErrorKind::InvalidInput,
-            "No hostname was given to be added to the hosts file. You should not see this message, if you do, please log an bug report at https://github.com/credmp/hed",
-        )));
-    }
-
-    for item in hf.entries.iter_mut().flatten() {
-        let i = item;
-
-        if i.name.is_some() && i.name.as_ref().unwrap() == hostname.unwrap() {
-            i.ip = ip_address;
-            if let Err(e) = hf.write() {
-                return Err(Box::new(Error::new(
-                    ErrorKind::PermissionDenied,
-                    format!(
-                        "Failed to write the hostfile back to the file. The error message is: {}",
-                        e
-                    ),
-                )));
-            }
-            return Ok(());
-        }
-    }
-    Ok(())
-}
-
-/// Color print the hosts file
-fn show(hf: HostFile) -> Result<(), Box<dyn std::error::Error>> {
-    for item in hf.entries.unwrap_or_else(|| vec![]) {
-        item.color_print();
-    }
-
-    Ok(())
-}
-
 /// Verify that the host file is parsable
-fn verify(hf: HostFile) -> Result<(), Box<dyn std::error::Error>> {
+fn verify(hf: HostFile) -> Result<(), ApplicationError> {
     println!(
         "Hostsfile is readable and contains {}{}{} entries.",
         color::Fg(color::Green),
         hf.entries.unwrap_or_else(Vec::new).len(),
         color::Fg(color::Reset),
     );
-    Ok(())
-}
-
-/// Delete an name or IP address from the hostsfile
-fn delete(mut hf: HostFile, entry: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
-    let is_ip = match entry.unwrap().parse::<IpAddr>() {
-        Ok(_e) => true,
-        Err(_e) => false,
-    };
-
-    let c = hf.entries.as_ref().unwrap().len();
-
-    if is_ip {
-        hf.remove_ip(entry);
-    } else {
-        hf.remove_name(entry);
-    }
-
-    if let Err(e) = hf.write() {
-        return Err(Box::new(Error::new(
-            ErrorKind::PermissionDenied,
-            format!(
-                "Failed to write the hostfile back to the file. The error message is: {}",
-                e
-            ),
-        )));
-    }
-    println!(
-        "Removed {}{}{} entries",
-        color::Fg(color::Green),
-        c - hf.entries.as_ref().unwrap().len(),
-        color::Fg(color::Reset)
-    );
-
     Ok(())
 }
 
