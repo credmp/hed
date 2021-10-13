@@ -255,6 +255,16 @@ mod test {
                 comment: None,
             }
         );
+
+        assert_eq!(
+            he.remove_hostname("demo.arjenwiersma.nl"),
+            HostEntry {
+                ip: Some(ip),
+                name: Some(String::from("arjenwiersma.nl")),
+                aliasses: Some(vec![String::from("d.arjenwiersma.nl")]),
+                comment: None,
+            }
+        );
     }
 
     #[test]

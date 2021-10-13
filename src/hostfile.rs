@@ -316,7 +316,7 @@ impl HostFile {
 
 #[cfg(test)]
 mod tests {
-    use crate::{hostentry::HostEntry, hostfile::HostFile};
+    use crate::hostfile::HostFile;
     use std::net::IpAddr;
 
     #[test]
@@ -338,6 +338,20 @@ mod tests {
         hf.add(Some("arjenwiersma.nl"), Some("127.0.0.1"))
             .expect("Adding host");
         assert!(hf.entries.is_some());
+
+        hf.delete(Some("arjenwiersma.nl")).expect("Should delete");
+        assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
+
+        hf.add(Some("arjenwiersma.nl"), Some("127.0.0.1"))
+            .expect("Adding host");
+        hf.add(Some("demo.arjenwiersma.nl"), Some("127.0.0.1"))
+            .expect("Adding host");
+        assert!(hf.entries.is_some());
+        assert_eq!(hf.entries.as_ref().unwrap().len(), 1);
+
+        hf.add(Some("demo2.arjenwiersma.nl"), Some("127.1.0.1"))
+            .expect("Adding host");
+        assert_eq!(hf.entries.as_ref().unwrap().len(), 2);
 
         hf.replace(Some("arjenwiersma.nl"), Some("192.168.0.1"))
             .expect("should replace");
