@@ -17,7 +17,7 @@ Architecture: amd64
 Depends:
     ${shlibs:Depends},
     ${misc:Depends}
-Description: A command-line tool to easily manage you hosts file.
+Description: command-line tool to manage the hosts file.
  Enables you to manipulate your hosts file from the command-line.
  By providing safe and easy commands you can add new hosts and aliases
  to your environment.
