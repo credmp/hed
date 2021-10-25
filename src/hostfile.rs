@@ -213,7 +213,11 @@ impl HostFile {
                 let i = item;
 
                 if i.has_ip(&ip_a) && !i.has_name(hostname.unwrap()) {
-                    i.add_alias(hostname.unwrap());
+                    if i.can_hostname_resolve_domain(hostname.unwrap()) {
+                        i.switch_name_with_alias(hostname.unwrap());
+                    } else {
+                        i.add_alias(hostname.unwrap());
+                    }
                     return Ok(());
                 } else if i.has_ip(&ip_a) {
                     return Err(ApplicationError::IpAlreadyInUse(format!("{}", i)));
@@ -234,6 +238,9 @@ impl HostFile {
 
                 if i.can_resolve_host(hostname.unwrap()) && !i.has_name(hostname.unwrap()) {
                     i.add_alias(hostname.unwrap());
+                    return Ok(());
+                } else if i.can_hostname_resolve_domain(hostname.unwrap()) {
+                    i.switch_name_with_alias(hostname.unwrap());
                     return Ok(());
                 } else if i.has_name(hostname.unwrap()) {
                     eprintln!("Hostname already exists in the hostfile");
@@ -304,7 +311,7 @@ impl HostFile {
         }
 
         println!(
-            "Removed {}{}{} entries",
+            "Removed {}{}{} entries (some entries could have been updated)",
             color::Fg(color::Green),
             c - self.entries.as_ref().unwrap().len(),
             color::Fg(color::Reset)
@@ -328,10 +335,14 @@ mod tests {
 
         assert!(hf.entries.is_none());
 
+        // ADD functions
+
+        // add it
         hf.add(Some("arjenwiersma.nl"), Some("127.0.0.1"))
             .expect("Adding host");
         assert!(hf.entries.is_some());
 
+        // remove it by ip
         hf.delete(Some("127.0.0.1")).expect("Should delete");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
@@ -339,20 +350,58 @@ mod tests {
             .expect("Adding host");
         assert!(hf.entries.is_some());
 
+        // remove it by name
         hf.delete(Some("arjenwiersma.nl")).expect("Should delete");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
+        // add a subdomain first
+        hf.add(Some("me.arjenwiersma.nl"), Some("127.0.0.1"))
+            .expect("Adding host");
+
+        // add parent domain after
+        hf.add(Some("arjenwiersma.nl"), Some("127.0.0.1"))
+            .expect("Adding parent domain");
+
+        // ensure the parent domain is the `name` property
+        assert!(hf.entries.is_some());
+        assert_eq!(hf.entries.as_ref().unwrap().len(), 1);
+        let he = hf.entries.as_ref().unwrap().get(0).unwrap();
+        assert_eq!(he.name.as_ref().unwrap(), "arjenwiersma.nl");
+
+        // and subdomain the alias
+        assert_eq!(
+            he.aliasses.as_ref().unwrap().get(0).unwrap(),
+            "me.arjenwiersma.nl"
+        );
+
+        hf.delete(Some("127.0.0.1")).expect("Should delete");
+        assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
+
+        // parent first
         hf.add(Some("arjenwiersma.nl"), Some("127.0.0.1"))
             .expect("Adding host");
+        // subdomain second
         hf.add(Some("demo.arjenwiersma.nl"), Some("127.0.0.1"))
             .expect("Adding host");
         assert!(hf.entries.is_some());
         assert_eq!(hf.entries.as_ref().unwrap().len(), 1);
+        let he = hf.entries.as_ref().unwrap().get(0).unwrap();
+        assert_eq!(he.name.as_ref().unwrap(), "arjenwiersma.nl");
 
+        // and subdomain the alias
+        assert_eq!(
+            he.aliasses.as_ref().unwrap().get(0).unwrap(),
+            "demo.arjenwiersma.nl"
+        );
+
+        // a second alias is added
         hf.add(Some("demo2.arjenwiersma.nl"), Some("127.1.0.1"))
             .expect("Adding host");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 2);
 
+        // REPLACE function
+
+        // replace the ip address of the domain
         hf.replace(Some("arjenwiersma.nl"), Some("192.168.0.1"))
             .expect("should replace");
         let e = hf.entries.clone();
