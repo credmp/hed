@@ -310,12 +310,17 @@ impl HostFile {
             self.remove_name(entry);
         }
 
-        println!(
-            "Removed {}{}{} entries (some entries could have been updated)",
-            color::Fg(color::Green),
-            c - self.entries.as_ref().unwrap().len(),
-            color::Fg(color::Reset)
-        );
+        let updated = c - self.entries.as_ref().unwrap().len();
+        if updated > 0 {
+            println!(
+                "Removed {}{}{} entries",
+                color::Fg(color::Green),
+                c - self.entries.as_ref().unwrap().len(),
+                color::Fg(color::Reset)
+            );
+        } else {
+            println!("No entries were removed, some could have been updated though",);
+        }
 
         Ok(())
     }
