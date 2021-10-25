@@ -55,7 +55,7 @@ impl HostEntry {
         Ok(())
     }
 
-    /// Checks if the `name` of `HostEntry` can result the passed `hostname`.
+    /// Checks if the `name` of `HostEntry` can resolve the passed `hostname`.
     ///
     /// If `name` is `host.tld` and `hostname` is a subdomain, return true.
     /// If `name` is a subdomain `sub.host.tld` of `hostname`, return false.
@@ -64,7 +64,25 @@ impl HostEntry {
     /// TODO: allow reassigning of `name`
     pub fn can_resolve_host(&self, hostname: &str) -> bool {
         if self.name.is_some() {
-            hostname.ends_with(self.name.as_ref().unwrap().as_str())
+            hostname.ends_with(format!(".{}", self.name.as_ref().unwrap().as_str()).as_str())
+        } else {
+            false
+        }
+    }
+
+    /// Checks if the `hostname` can resolve the `name` of `HostEntry`. This
+    /// is the inverse of `can_resolve_host`.
+    ///
+    /// If `hostname` is `host.tld` and `name` is a subdomain, return true.
+    /// If `hostname` is a subdomain `sub.host.tld` of `name`, return false.
+    ///
+    pub fn can_hostname_resolve_domain(&self, hostname: &str) -> bool {
+        if self.name.is_some() {
+            self.name
+                .as_ref()
+                .unwrap()
+                .as_str()
+                .ends_with(format!(".{}", hostname).as_str())
         } else {
             false
         }
@@ -106,6 +124,17 @@ impl HostEntry {
             self.aliasses = Some(alias);
         } else {
             self.aliasses = Some(vec![hostname.to_string()]);
+        }
+    }
+
+    /// a hostname is given that can be the parent domain
+    /// make the hostname the `name` and move the current
+    /// `name` to aliases    
+    pub(crate) fn switch_name_with_alias(&mut self, hostname: &str) {
+        if self.can_hostname_resolve_domain(hostname) {
+            let t = self.name.as_ref().unwrap().clone();
+            self.name = Some(String::from(hostname));
+            self.add_alias(t.as_str());
         }
     }
 
@@ -255,6 +284,16 @@ mod test {
                 comment: None,
             }
         );
+
+        assert_eq!(
+            he.remove_hostname("demo.arjenwiersma.nl"),
+            HostEntry {
+                ip: Some(ip),
+                name: Some(String::from("arjenwiersma.nl")),
+                aliasses: Some(vec![String::from("d.arjenwiersma.nl")]),
+                comment: None,
+            }
+        );
     }
 
     #[test]
@@ -346,6 +385,36 @@ mod test {
         };
 
         assert!(he.can_resolve_host("arjen.wiersma.nl"));
+        assert!(!he.can_resolve_host("bwiersma.nl"));
         assert!(!he.can_resolve_host("piet.nl"));
+    }
+
+    #[test]
+    fn test_hostname_can_resolve() {
+        let he = HostEntry {
+            ip: None,
+            name: Some(String::from("arjen.wiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+
+        assert!(!he.can_hostname_resolve_domain("iersma.nl"));
+        assert!(he.can_hostname_resolve_domain("wiersma.nl"));
+        assert!(!he.can_hostname_resolve_domain("piet.nl"));
+    }
+
+    #[test]
+    fn test_switch_name() {
+        let mut he = HostEntry {
+            ip: None,
+            name: Some(String::from("arjen.wiersma.nl")),
+            aliasses: None,
+            comment: None,
+        };
+
+        he.switch_name_with_alias("wiersma.nl");
+
+        assert_eq!(he.name.unwrap(), "wiersma.nl");
+        assert_eq!(he.aliasses.unwrap().get(0).unwrap(), "arjen.wiersma.nl");
     }
 }

@@ -1,0 +1,5 @@
+hed (0.1.5) unstable; urgency=medium
+
+  * Initial release (Closes: #996405)
+
+ -- Arjen Wiersma <arjen+debian@wiersma.org>  Mon, 25 Oct 2021 22:43:10 +0200
