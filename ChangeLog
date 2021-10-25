@@ -1,3 +1,7 @@
+2021-10-25  Arjen Wiersma  <arjen@wiersma.org>
+
+	* src/hostfile.rs: parent domains can be added when a child domain already exists, optimizing the entry.
+
 2021-10-12  Arjen Wiersma  <arjen@wiersma.org>
 
 	* src/hostfile.rs: handle end of line comments in host entries

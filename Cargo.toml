@@ -1,6 +1,6 @@
 [package]
 name = "hed"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2018"
 license = "GPLv3"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
