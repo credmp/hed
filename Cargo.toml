@@ -2,14 +2,14 @@
 name = "hed"
 version = "0.1.5"
 edition = "2018"
-license = "GPLv3"
+license = "GPL-3.0-or-later"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
 categories = ["command-line-utilities"]
 repository = "https://github.com/credmp/hed"
 description = "Manage your hosts file from the command line."
 documentation = "https://github.com/credmp/hed"
 homepage = "https://github.com/credmp/hed#readme"
-keywords = ["hosts", "utility"]
+keywords = ["cli", "hosts", "utility"]
 readme = "README.md"
 
 [[bin]]
