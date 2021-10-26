@@ -22,7 +22,7 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("Host EDitor")
-        .long_about("Host EDitor allows you to maniuplate the /etc/hosts file. It will manage adding new hosts and removing old entries. Any entry added will be validated (valid ip, non-existing previous entry).")
+        .long_about("Host EDitor allows you to manipulate the /etc/hosts file. It will manage adding new hosts and removing old entries. Any entry added will be validated (valid ip, non-existing previous entry).")
         .setting(clap::AppSettings::ColoredHelp)
         .setting(clap::AppSettings::ArgRequiredElseHelp)
         .arg(
