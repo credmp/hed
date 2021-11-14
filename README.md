@@ -105,6 +105,18 @@ The tool is to be used as a regular user, it will elevate privileges when it req
 
 ### Installation
 
+#### Using `cargo`
+
+If you have the rust package manager `cargo` installed you can simply install `hed` by running
+
+```sh
+cargo install hed
+```
+
+It will pull in the latest version.
+
+#### Manual installation
+
 1. Create your local `bin` directory
    ```sh
    mkdir ~/.local/bin

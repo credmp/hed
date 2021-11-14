@@ -1,22 +1,22 @@
 [package]
 name = "hed"
-version = "0.1.5"
-edition = "2018"
-license = "GPLv3"
+version = "0.1.6"
+edition = "2021"
+license = "GPL-3.0-or-later"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
 categories = ["command-line-utilities"]
 repository = "https://github.com/credmp/hed"
 description = "Manage your hosts file from the command line."
 documentation = "https://github.com/credmp/hed"
 homepage = "https://github.com/credmp/hed#readme"
-keywords = ["hosts", "utility"]
+keywords = ["cli", "hosts", "utility"]
 readme = "README.md"
 
 [[bin]]
 name = "hed"
 
 [dependencies]
-clap = "3.0.0-beta.4"
+clap = "2"
 color-eyre = "0.5.11"
 faccess = "0.2.3"
 regex = "1.5.4"
