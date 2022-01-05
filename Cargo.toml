@@ -1,7 +1,7 @@
 [package]
 name = "hed"
 version = "0.1.6"
-edition = "2021"
+edition = "2018"
 license = "GPL-3.0-or-later"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
 categories = ["command-line-utilities"]
@@ -16,7 +16,7 @@ readme = "README.md"
 name = "hed"
 
 [dependencies]
-clap = "2"
+clap = "3"
 color-eyre = "0.5.11"
 faccess = "0.2.3"
 regex = "1.5.4"

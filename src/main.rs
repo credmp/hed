@@ -1,7 +1,7 @@
 use std::process::exit;
 
-use clap::{App, Arg, SubCommand};
-pub use color_eyre::eyre::Result;
+use clap::{App, Arg};
+pub(crate) use color_eyre::eyre::Result;
 use errors::ApplicationError;
 use termion::color;
 
@@ -24,36 +24,35 @@ fn main() {
         .about("Host EDitor")
         .long_about("Host EDitor allows you to manipulate the /etc/hosts file. It will manage adding new hosts and removing old entries. Any entry added will be validated (valid ip, non-existing previous entry).")
         .setting(clap::AppSettings::ArgRequiredElseHelp)
-        .setting(clap::AppSettings::ColoredHelp)
         .arg(
-            Arg::with_name("file")
+            Arg::new("file")
                 .long("file")
-                .required(false)
+                .required(true)
                 .takes_value(true)
                 .help("Instead of /etc/hosts, use this file (testing)"),
         )
         .subcommand(
-            SubCommand::with_name("verify")
-                .help("Verify the integrity of the hosts file")
+            App::new("verify")
+                .about("Verify the integrity of the hosts file")
                 .version("0.1"),
         )
         .subcommand(
-            SubCommand::with_name("show")
-                .help("List your current hostfile")
+            App::new("show")
+                .about("List your current hostfile")
                 .version("0.1"),
         )
         .subcommand(
-            SubCommand::with_name("add")
-                .help("Add a host to your hostfile")
+            App::new("add")
+                .about("Add a host to your hostfile")
                 .version("0.1")
                 .arg(
-                    Arg::with_name("hostname")
+                    Arg::new("hostname")
                         .index(1)
                         .required(true)
                         .help("Hostname to add to the hostfile"),
                 )
                 .arg(
-                    Arg::with_name("ip")
+                    Arg::new("ip")
                         .index(2)
                         .required(false)
                         .help("Optional: ip address of the hostname"),
@@ -64,13 +63,13 @@ fn main() {
                 .about("Replace the IP address for a hostname in your hostfile")
                 .version("0.1")
                 .arg(
-                    Arg::with_name("hostname")
+                    Arg::new("hostname")
                         .index(1)
                         .required(true)
                         .help("Hostname of the entry to replace"),
                 )
                 .arg(
-                    Arg::with_name("ip")
+                    Arg::new("ip")
                         .index(2)
                         .required(true)
                         .help("IP address to change to"),
@@ -81,7 +80,7 @@ fn main() {
                 .about("Delete a host from your hostfile")
                 .version("0.1")
                 .arg(
-                    Arg::with_name("entry")
+                    Arg::new("entry")
                         .index(1)
                         .required(true)
                         .help("IP or Hostname to remove"),
@@ -174,7 +173,7 @@ fn main() {
     };
 }
 
-fn get_filename<'a>(matches: &'a clap::ArgMatches) -> &'a str {
+fn get_filename(matches: &clap::ArgMatches) -> &str {
     match matches.value_of("file") {
         Some(x) => x,
         _ => "/etc/hosts",
