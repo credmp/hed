@@ -29,9 +29,9 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-  <a href="https://github.com/credmp/hed">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
-  </a>
+  <!-- <a href="https://github.com/credmp/hed"> -->
+  <!--   <img src="images/logo.png" alt="Logo" width="80" height="80"> -->
+  <!-- </a> -->
 
 <h3 align="center">Host EDitor</h3>
 
