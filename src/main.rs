@@ -27,7 +27,7 @@ fn main() {
         .arg(
             Arg::new("file")
                 .long("file")
-                .required(true)
+                .required(false)
                 .takes_value(true)
                 .help("Instead of /etc/hosts, use this file (testing)"),
         )
