@@ -16,7 +16,7 @@ readme = "README.md"
 name = "hed"
 
 [dependencies]
-clap = "3"
+clap = {version = "3", features = ["derive"]}
 color-eyre = "0.5.11"
 faccess = "0.2.3"
 regex = "1.5.4"
