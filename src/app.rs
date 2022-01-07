@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand, AppSettings};
 
 
-/// A fictional versioning CLI
 #[derive(Parser, Debug)]
 #[clap(name = env!("CARGO_PKG_NAME"))]
 #[clap(version = env!("CARGO_PKG_VERSION"))]
@@ -30,7 +29,7 @@ pub enum Commands {
         /// Hostname to add to the hostfile
         #[clap(required = true, index=1)]
         hostname: String,
-        /// Hostname to add to the hostfile
+        /// IP address of the host
         #[clap(required = false, index=2)]
         ip: Option<String>,
     },
