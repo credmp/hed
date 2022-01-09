@@ -69,11 +69,9 @@ impl HostFile {
         match read_lines(&self.filename) {
             Ok(lines) => {
                 self.entries = lines
-                    .map(|l| {
-                        match l.unwrap_or_else(|_e| "".to_string()).parse() {
-                            Ok(s) => Some(s),
-                            _ => None,                            
-                        }
+                    .map(|l| match l.unwrap_or_else(|_e| "".to_string()).parse() {
+                        Ok(s) => Some(s),
+                        _ => None,
                     })
                     .collect();
                 Ok(())
@@ -122,7 +120,7 @@ impl HostFile {
                 }
             }
 
-                self.entries = Some(updated);
+            self.entries = Some(updated);
         } else {
             eprintln!("No entries to delete");
         }
@@ -263,7 +261,7 @@ impl HostFile {
 
     pub(crate) fn import(&mut self, filename: String) -> Result<(), ApplicationError> {
         if std::path::Path::new(filename.as_str()).exists() {
-            let entries = match import_from_file(filename) {
+            let entries = match self.import_from_file(filename) {
                 Ok(value) => value,
                 Err(value) => return value,
             };
@@ -274,7 +272,7 @@ impl HostFile {
 
             Ok(())
         } else if filename.starts_with("http") {
-            let entries = match import_from_url(filename) {
+            let entries = match self.import_from_url(filename) {
                 Ok(value) => value,
                 Err(value) => return value,
             };
@@ -282,61 +280,67 @@ impl HostFile {
             for he in entries {
                 self.add_host_entry(he.unwrap());
             }
-            
+
             Ok(())
-        }  else {
+        } else {
             // else indicate we do not know
-            Err(ApplicationError::ImportFilenameUnreadable(filename, "no suitable type".to_string()))
+            Err(ApplicationError::ImportFilenameUnreadable(
+                filename,
+                "no suitable type".to_string(),
+            ))
         }
     }
-}
 
-fn import_from_url(filename: String) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
-    println!("Attempting to retrieve {}", filename);
-    let res = match reqwest::blocking::get(filename.as_str()) {
-        Ok(body) => {
-            match body.text() {
+    fn import_from_url(
+        &self,
+        filename: String,
+    ) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
+        println!("Attempting to retrieve {}", filename);
+        let res = match reqwest::blocking::get(filename.as_str()) {
+            Ok(body) => match body.text() {
                 Ok(t) => Some(t),
                 Err(_) => None,
-            }
-        }
-        Err(_) => None,
-    };
-    println!("Retrieved the remote file, processing {} bytes (can take a bit with larger files due to all the validation)", res.as_ref().unwrap().as_str().len());
-    let entries: Vec<Option<HostEntry>> = match res {
-        Some(t) => {
-            let lines = t.split("\n");
-            lines.map(|l| {
-                match l.parse() {
-                    Ok(s) => Some(s),
-                    _ => None,                            
-                }
-            }).collect()
-        }
-        None => {
-            return Err(Err(ApplicationError::ImportURLInaccessible(filename)));
-        }
-    };
-    Ok(entries)
-}
-
-fn import_from_file(filename: String) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
-    let entries:Vec<Option<HostEntry>> = match read_lines(filename.as_str()) {
-        Ok(lines) => {
-            lines
-                .map(|l| {
-                    match l.unwrap_or_else(|_e| "".to_string()).parse() {
+            },
+            Err(_) => None,
+        };
+        println!("Retrieved the remote file, processing {} bytes (can take a bit with larger files due to all the validation)", res.as_ref().unwrap().as_str().len());
+        let entries: Vec<Option<HostEntry>> = match res {
+            Some(t) => {
+                let lines = t.split("\n");
+                lines
+                    .map(|l| match l.parse() {
                         Ok(s) => Some(s),
-                        _ => None,                            
-                    }
+                        _ => None,
+                    })
+                    .collect()
+            }
+            None => {
+                return Err(Err(ApplicationError::ImportURLInaccessible(filename)));
+            }
+        };
+        Ok(entries)
+    }
+
+    fn import_from_file(
+        &self,
+        filename: String,
+    ) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
+        let entries: Vec<Option<HostEntry>> = match read_lines(filename.as_str()) {
+            Ok(lines) => lines
+                .map(|l| match l.unwrap_or_else(|_e| "".to_string()).parse() {
+                    Ok(s) => Some(s),
+                    _ => None,
                 })
-                .collect()
-        }
-        Err(e) => {
-            return Err(Err(ApplicationError::ImportFilenameUnreadable(filename, e.to_string())))
-        }
-    };
-    Ok(entries)
+                .collect(),
+            Err(e) => {
+                return Err(Err(ApplicationError::ImportFilenameUnreadable(
+                    filename,
+                    e.to_string(),
+                )))
+            }
+        };
+        Ok(entries)
+    }
 }
 
 #[cfg(test)]
@@ -356,29 +360,42 @@ mod tests {
         // ADD functions
 
         // add it
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
 
         // remove it by ip
         hf.delete(String::from("127.0.0.1")).expect("Should delete");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
 
         // remove it by name
-        hf.delete(String::from("arjenwiersma.nl")).expect("Should delete");
+        hf.delete(String::from("arjenwiersma.nl"))
+            .expect("Should delete");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
         // add a subdomain first
-        hf.add(String::from("me.arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("me.arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
 
         // add parent domain after
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding parent domain");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding parent domain");
 
         // ensure the parent domain is the `name` property
         assert!(hf.entries.is_some());
@@ -396,11 +413,17 @@ mod tests {
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
         // parent first
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         // subdomain second
-        hf.add(String::from("demo.arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("demo.arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
         assert_eq!(hf.entries.as_ref().unwrap().len(), 1);
         let he = hf.entries.as_ref().unwrap().get(0).unwrap();
@@ -413,15 +436,21 @@ mod tests {
         );
 
         // a second alias is added
-        hf.add(String::from("demo2.arjenwiersma.nl"), Some(String::from("127.1.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("demo2.arjenwiersma.nl"),
+            Some(String::from("127.1.0.1")),
+        )
+        .expect("Adding host");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 2);
 
         // REPLACE function
 
         // replace the ip address of the domain
-        hf.replace(String::from("arjenwiersma.nl"), Some(String::from("192.168.0.1")))
-            .expect("should replace");
+        hf.replace(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("192.168.0.1")),
+        )
+        .expect("should replace");
         let e = hf.entries.clone();
         let en = e.unwrap().get(0).unwrap().clone();
         assert_eq!(en.name.unwrap(), "arjenwiersma.nl");
@@ -430,5 +459,4 @@ mod tests {
             "192.168.0.1".parse::<IpAddr>().expect("should read ip")
         );
     }
-
 }
