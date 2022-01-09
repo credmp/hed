@@ -263,66 +263,80 @@ impl HostFile {
 
     pub(crate) fn import(&mut self, filename: String) -> Result<(), ApplicationError> {
         if std::path::Path::new(filename.as_str()).exists() {
-            let entries:Vec<Option<HostEntry>> = match read_lines(&filename) {
-                Ok(lines) => {
-                    lines
-                        .map(|l| {
-                            match l.unwrap_or_else(|_e| "".to_string()).parse() {
-                                Ok(s) => Some(s),
-                                _ => None,                            
-                            }
-                        })
-                        .collect()
-                }
-                Err(e) => {
-                    return Err(ApplicationError::ImportFilenameUnreadable(filename, e.to_string()))
-                }
+            let entries = match import_from_file(filename) {
+                Ok(value) => value,
+                Err(value) => return value,
             };
 
-            eprintln!("{:?}", entries);
+            for he in entries {
+                self.add_host_entry(he.unwrap());
+            }
+
             Ok(())
         } else if filename.starts_with("http") {
-            println!("Attempting to retrieve {}", filename);
-            // if it is http(s), read that
-            let res = match reqwest::blocking::get(&filename) {
-                Ok(body) => {
-                    match body.text() {
-                        Ok(t) => Some(t),
-                        Err(_) => None,
-                    }
-                }
-                Err(_) => None,
-            };
-
-            println!("Retrieved the remote file, processing {} bytes (can take a bit with larger files due to all the validation)", res.as_ref().unwrap().as_str().len());
-            
-            //eprintln!("{:?}", res);
-            let entries: Vec<Option<HostEntry>> = match res {
-                Some(t) => {
-                    let lines = t.split("\n");
-                    lines.map(|l| {
-                        match l.parse() {
-                            Ok(s) => Some(s),
-                            _ => None,                            
-                        }
-                    }).collect()
-                }
-                None => {
-                    return Err(ApplicationError::ImportURLInaccessible(filename));
-                }
+            let entries = match import_from_url(filename) {
+                Ok(value) => value,
+                Err(value) => return value,
             };
 
             for he in entries {
                 self.add_host_entry(he.unwrap());
             }
             
-            //eprintln!("{:?}", entries);
             Ok(())
         }  else {
             // else indicate we do not know
             Err(ApplicationError::ImportFilenameUnreadable(filename, "no suitable type".to_string()))
         }
     }
+}
+
+fn import_from_url(filename: String) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
+    println!("Attempting to retrieve {}", filename);
+    let res = match reqwest::blocking::get(filename.as_str()) {
+        Ok(body) => {
+            match body.text() {
+                Ok(t) => Some(t),
+                Err(_) => None,
+            }
+        }
+        Err(_) => None,
+    };
+    println!("Retrieved the remote file, processing {} bytes (can take a bit with larger files due to all the validation)", res.as_ref().unwrap().as_str().len());
+    let entries: Vec<Option<HostEntry>> = match res {
+        Some(t) => {
+            let lines = t.split("\n");
+            lines.map(|l| {
+                match l.parse() {
+                    Ok(s) => Some(s),
+                    _ => None,                            
+                }
+            }).collect()
+        }
+        None => {
+            return Err(Err(ApplicationError::ImportURLInaccessible(filename)));
+        }
+    };
+    Ok(entries)
+}
+
+fn import_from_file(filename: String) -> Result<Vec<Option<HostEntry>>, Result<(), ApplicationError>> {
+    let entries:Vec<Option<HostEntry>> = match read_lines(filename.as_str()) {
+        Ok(lines) => {
+            lines
+                .map(|l| {
+                    match l.unwrap_or_else(|_e| "".to_string()).parse() {
+                        Ok(s) => Some(s),
+                        _ => None,                            
+                    }
+                })
+                .collect()
+        }
+        Err(e) => {
+            return Err(Err(ApplicationError::ImportFilenameUnreadable(filename, e.to_string())))
+        }
+    };
+    Ok(entries)
 }
 
 #[cfg(test)]

@@ -71,9 +71,11 @@ fn main() {
             match hf.import(filename) {
                 Ok(_) => {
                     if dry_run {
-                        hf.show()                        
+                        hf.show()
                     } else {
-                        hf.write()
+                        let res = hf.write();
+                        eprintln!("File has been imported into the hostfile.");
+                        res
                     }
                 },
                 Err(e) => {
