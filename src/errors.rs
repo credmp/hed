@@ -33,4 +33,10 @@ pub enum ApplicationError {
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
+
+    #[error("File {0} is not readable: {1}")]
+    ImportFilenameUnreadable(String, String),
+
+    #[error("URL is not accessible: {0}")]
+    ImportURLInaccessible(String),
 }

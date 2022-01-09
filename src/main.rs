@@ -58,7 +58,28 @@ fn main() {
             }            
         },
         Commands::Delete { entry } => {
-            hf.delete(entry)
+            match hf.delete(entry) {
+                Ok(()) => hf.write(),
+                Err(e) => {
+                    eprintln!("Failed to process command: {}", e);
+                    exit(exits::RUNTIME_ERROR);
+                }
+            }            
+                
+        },
+        Commands::Import { filename, dry_run} => {
+            match hf.import(filename) {
+                Ok(_) => {
+                    if dry_run {
+                        hf.show()                        
+                    } else {
+                        hf.write()
+                    }
+                },
+                Err(e) => {
+                    Err(e)
+                }
+            }
         },
     };
 

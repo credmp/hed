@@ -260,6 +260,69 @@ impl HostFile {
 
         Ok(())
     }
+
+    pub(crate) fn import(&mut self, filename: String) -> Result<(), ApplicationError> {
+        if std::path::Path::new(filename.as_str()).exists() {
+            let entries:Vec<Option<HostEntry>> = match read_lines(&filename) {
+                Ok(lines) => {
+                    lines
+                        .map(|l| {
+                            match l.unwrap_or_else(|_e| "".to_string()).parse() {
+                                Ok(s) => Some(s),
+                                _ => None,                            
+                            }
+                        })
+                        .collect()
+                }
+                Err(e) => {
+                    return Err(ApplicationError::ImportFilenameUnreadable(filename, e.to_string()))
+                }
+            };
+
+            eprintln!("{:?}", entries);
+            Ok(())
+        } else if filename.starts_with("http") {
+            println!("Attempting to retrieve {}", filename);
+            // if it is http(s), read that
+            let res = match reqwest::blocking::get(&filename) {
+                Ok(body) => {
+                    match body.text() {
+                        Ok(t) => Some(t),
+                        Err(_) => None,
+                    }
+                }
+                Err(_) => None,
+            };
+
+            println!("Retrieved the remote file, processing {} bytes (can take a bit with larger files due to all the validation)", res.as_ref().unwrap().as_str().len());
+            
+            //eprintln!("{:?}", res);
+            let entries: Vec<Option<HostEntry>> = match res {
+                Some(t) => {
+                    let lines = t.split("\n");
+                    lines.map(|l| {
+                        match l.parse() {
+                            Ok(s) => Some(s),
+                            _ => None,                            
+                        }
+                    }).collect()
+                }
+                None => {
+                    return Err(ApplicationError::ImportURLInaccessible(filename));
+                }
+            };
+
+            for he in entries {
+                self.add_host_entry(he.unwrap());
+            }
+            
+            //eprintln!("{:?}", entries);
+            Ok(())
+        }  else {
+            // else indicate we do not know
+            Err(ApplicationError::ImportFilenameUnreadable(filename, "no suitable type".to_string()))
+        }
+    }
 }
 
 #[cfg(test)]
