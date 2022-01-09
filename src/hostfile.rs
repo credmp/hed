@@ -8,8 +8,6 @@ use std::{
 };
 use termion::color;
 
-use regex::Regex;
-
 use crate::errors::ApplicationError;
 use crate::hostentry::HostEntry;
 use crate::utils::read_lines;
@@ -72,65 +70,15 @@ impl HostFile {
             Ok(lines) => {
                 self.entries = lines
                     .map(|l| {
-                        match HostFile::parse_line(l.unwrap_or_else(|_e| "".to_string()).as_str()) {
+                        match l.unwrap_or_else(|_e| "".to_string()).parse() {
                             Ok(s) => Some(s),
-                            _ => None,
+                            _ => None,                            
                         }
                     })
                     .collect();
                 Ok(())
             }
             Err(e) => Err(Box::new(Error::new(ErrorKind::Other, e))),
-        }
-    }
-
-    fn parse_line(input: &str) -> Result<HostEntry, Box<dyn std::error::Error>> {
-        let comment = Regex::new(r"^#\s*(?P<c>.+)\s*$").unwrap();
-        let entry =
-            Regex::new(r"^(?P<ip>.+?)\s+(?P<name>.+?)(\s+(?P<aliasses>[^#]+))?(#\s*(?P<c>.*))?$")
-                .unwrap();
-        if comment.is_match(input) {
-            Ok(comment
-                .captures(input)
-                .map(|cap| HostEntry {
-                    ip: None,
-                    name: None,
-                    aliasses: None,
-                    comment: cap.name("c").map(|t| String::from(t.as_str().trim())),
-                })
-                .unwrap())
-        } else if entry.is_match(input) {
-            let caps = entry.captures(input).unwrap();
-            let ip_str = caps.name("ip").map(|t| t.as_str()).unwrap();
-
-            let ip: Option<IpAddr> = match ip_str.parse() {
-                Ok(x) => Some(x),
-                _ => None,
-            };
-
-            let name = caps.name("name").map(|t| String::from(t.as_str().trim()));
-            let alias = caps
-                .name("aliasses")
-                .map(|t| String::from(t.as_str().trim()));
-            let alias_vec: Option<Vec<String>> = alias.map(|x| {
-                x.split_whitespace()
-                    .map(String::from)
-                    .collect::<Vec<String>>()
-            });
-            let comment = caps.name("c").map(|t| String::from(t.as_str().trim()));
-            Ok(HostEntry {
-                ip,
-                name,
-                aliasses: alias_vec,
-                comment,
-            })
-        } else {
-            Ok(HostEntry {
-                ip: None,
-                name: None,
-                aliasses: None,
-                comment: None,
-            })
         }
     }
 
@@ -406,58 +354,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_empty_parse_line() {
-        if let Ok(he) = HostFile::parse_line("") {
-            assert_eq!(he.name, None);
-            assert_eq!(he.comment, None);
-        } else {
-            panic!("Failed to parse valid string");
-        }
-    }
-
-    #[test]
-    fn test_parse_comment() {
-        if let Ok(he) = HostFile::parse_line("# testing") {
-            assert_eq!(he.name, None);
-            assert_eq!(he.comment.unwrap(), "testing");
-        } else {
-            panic!("Failed to parse valid string");
-        }
-    }
-
-    #[test]
-    fn test_parse_host_entry() {
-        if let Ok(he) = HostFile::parse_line("127.0.0.1 localhost") {
-            assert_eq!(he.name.unwrap(), "localhost");
-            assert_eq!(he.comment, None);
-            assert_eq!(he.ip.unwrap(), "127.0.0.1".parse::<IpAddr>().unwrap());
-        } else {
-            panic!("Failed to parse valid string");
-        }
-    }
-
-    #[test]
-    fn test_parse_host_entry_with_alias() {
-        if let Ok(he) = HostFile::parse_line("127.0.0.1 localhost alias1 alias2 ") {
-            assert_eq!(he.name.unwrap(), "localhost");
-            assert_eq!(he.comment, None);
-            assert_eq!(he.ip.unwrap(), "127.0.0.1".parse::<IpAddr>().unwrap());
-            assert_eq!(he.aliasses.unwrap(), vec!["alias1", "alias2"]);
-        } else {
-            panic!("Failed to parse valid string");
-        }
-    }
-
-    #[test]
-    fn test_parse_host_entry_with_alias_and_comment() {
-        if let Ok(he) = HostFile::parse_line("127.0.0.1 localhost alias1 alias2 # testing") {
-            assert_eq!(he.name.unwrap(), "localhost");
-            assert_eq!(he.comment.unwrap(), "testing");
-            assert_eq!(he.ip.unwrap(), "127.0.0.1".parse::<IpAddr>().unwrap());
-            assert_eq!(he.aliasses.unwrap(), vec!["alias1", "alias2"]);
-        } else {
-            panic!("Failed to parse valid string");
-        }
-    }
 }

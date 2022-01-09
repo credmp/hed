@@ -1,5 +1,6 @@
-use std::{fmt, io::Write, net::IpAddr};
+use std::{fmt, io::Write, net::IpAddr, str::FromStr, string::ParseError};
 
+use regex::Regex;
 use termion::color;
 
 #[derive(Debug, Clone)]
@@ -213,6 +214,60 @@ impl PartialEq for HostEntry {
 //     }
 // }
 
+impl FromStr for HostEntry {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let comment = Regex::new(r"^#\s*(?P<c>.+)\s*$").unwrap();
+        let entry =
+            Regex::new(r"^(?P<ip>.+?)\s+(?P<name>.+?)(\s+(?P<aliasses>[^#]+))?(#\s*(?P<c>.*))?$")
+                .unwrap();
+        if comment.is_match(s) {
+            Ok(comment
+                .captures(s)
+                .map(|cap| HostEntry {
+                    ip: None,
+                    name: None,
+                    aliasses: None,
+                    comment: cap.name("c").map(|t| String::from(t.as_str().trim())),
+                })
+                .unwrap())
+        } else if entry.is_match(s) {
+            let caps = entry.captures(s).unwrap();
+            let ip_str = caps.name("ip").map(|t| t.as_str()).unwrap();
+
+            let ip: Option<IpAddr> = match ip_str.parse() {
+                Ok(x) => Some(x),
+                _ => None,
+            };
+
+            let name = caps.name("name").map(|t| String::from(t.as_str().trim()));
+            let alias = caps
+                .name("aliasses")
+                .map(|t| String::from(t.as_str().trim()));
+            let alias_vec: Option<Vec<String>> = alias.map(|x| {
+                x.split_whitespace()
+                    .map(String::from)
+                    .collect::<Vec<String>>()
+            });
+            let comment = caps.name("c").map(|t| String::from(t.as_str().trim()));
+            Ok(HostEntry {
+                ip,
+                name,
+                aliasses: alias_vec,
+                comment,
+            })
+        } else {
+            Ok(HostEntry {
+                ip: None,
+                name: None,
+                aliasses: None,
+                comment: None,
+            })
+        }
+    }
+}
+
 impl fmt::Display for HostEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.ip == None && self.comment != None {
@@ -416,5 +471,48 @@ mod test {
 
         assert_eq!(he.name.unwrap(), "wiersma.nl");
         assert_eq!(he.aliasses.unwrap().get(0).unwrap(), "arjen.wiersma.nl");
+    }
+
+    #[test]
+    fn test_from_string_entry() {
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl".parse().unwrap();        
+
+        assert_eq!("arjenwiersma.nl", entry.name.unwrap());
+        assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
+    }
+
+    #[test]
+    fn test_from_string_empty_entry() {
+        let entry: HostEntry = "".parse().unwrap();        
+
+        assert_eq!(None, entry.name);
+        assert_eq!(None, entry.ip);
+    }
+
+    #[test]
+    fn test_from_string_entry_with_alias() {
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2".parse().unwrap();        
+
+        assert_eq!("arjenwiersma.nl", entry.name.unwrap());
+        assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
+        assert_eq!(entry.aliasses.unwrap(), vec!["alias1", "alias2"]);
+    }
+
+    #[test]
+    fn test_from_string_entry_with_alias_and_comment() {
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2 # testing".parse().unwrap();        
+
+        assert_eq!("arjenwiersma.nl", entry.name.unwrap());
+        assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
+        assert_eq!(entry.aliasses.unwrap(), vec!["alias1", "alias2"]); 
+        assert_eq!(entry.comment.unwrap(), "testing");
+   }
+
+    
+    #[test]
+    fn test_from_string_comment() {
+        let entry: HostEntry = "# from string".parse().unwrap();        
+
+        assert_eq!("from string", entry.comment.unwrap());
     }
 }
