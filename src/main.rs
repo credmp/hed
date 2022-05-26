@@ -1,16 +1,19 @@
 use std::process::exit;
 
-use clap::{App, Arg, SubCommand};
-pub use color_eyre::eyre::Result;
+use clap::Parser;
+pub(crate) use color_eyre::eyre::Result;
 use errors::ApplicationError;
 use termion::color;
+use utils::Modifications;
 
 use crate::hostfile::HostFile;
-
+pub mod app;
 pub mod errors;
 pub mod hostentry;
 pub mod hostfile;
 pub mod utils;
+
+use app::Commands;
 
 fn main() {
     if let Err(e) = color_eyre::install() {
@@ -18,81 +21,10 @@ fn main() {
         exit(exits::RUNTIME_ERROR);
     }
 
-    let matches = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .about("Host EDitor")
-        .long_about("Host EDitor allows you to manipulate the /etc/hosts file. It will manage adding new hosts and removing old entries. Any entry added will be validated (valid ip, non-existing previous entry).")
-        .setting(clap::AppSettings::ArgRequiredElseHelp)
-        .setting(clap::AppSettings::ColoredHelp)
-        .arg(
-            Arg::with_name("file")
-                .long("file")
-                .required(false)
-                .takes_value(true)
-                .help("Instead of /etc/hosts, use this file (testing)"),
-        )
-        .subcommand(
-            SubCommand::with_name("verify")
-                .help("Verify the integrity of the hosts file")
-                .version("0.1"),
-        )
-        .subcommand(
-            SubCommand::with_name("show")
-                .help("List your current hostfile")
-                .version("0.1"),
-        )
-        .subcommand(
-            SubCommand::with_name("add")
-                .help("Add a host to your hostfile")
-                .version("0.1")
-                .arg(
-                    Arg::with_name("hostname")
-                        .index(1)
-                        .required(true)
-                        .help("Hostname to add to the hostfile"),
-                )
-                .arg(
-                    Arg::with_name("ip")
-                        .index(2)
-                        .required(false)
-                        .help("Optional: ip address of the hostname"),
-                ),
-        )
-        .subcommand(
-            App::new("replace")
-                .about("Replace the IP address for a hostname in your hostfile")
-                .version("0.1")
-                .arg(
-                    Arg::with_name("hostname")
-                        .index(1)
-                        .required(true)
-                        .help("Hostname of the entry to replace"),
-                )
-                .arg(
-                    Arg::with_name("ip")
-                        .index(2)
-                        .required(true)
-                        .help("IP address to change to"),
-                ),
-        )
-        .subcommand(
-            App::new("delete")
-                .about("Delete a host from your hostfile")
-                .version("0.1")
-                .arg(
-                    Arg::with_name("entry")
-                        .index(1)
-                        .required(true)
-                        .help("IP or Hostname to remove"),
-                ),
-        )
-        .get_matches();
-
-    let filename = get_filename(&matches);
+    let matches = app::Cli::parse();
 
     let mut hf = HostFile {
-        filename: filename.to_string(),
+        filename: matches.file,
         entries: None,
     };
 
@@ -101,70 +33,57 @@ fn main() {
         exit(exits::RUNTIME_ERROR);
     }
 
-    let res = match matches.subcommand_name() {
-        Some("verify") => verify(hf),
-        Some("show") => hf.show(),
-        Some("add") => {
-            let mymatches = matches
-                .subcommand_matches("add")
-                .expect("Cannot be a subcommand and not be a subcommand");
-
-            let ip = if mymatches.is_present("ip") {
-                mymatches.value_of("ip")
-            } else {
-                None
-            };
-            match hf.add(mymatches.value_of("hostname"), ip) {
-                Ok(()) => hf.write(),
-                Err(e) => {
-                    eprintln!("Failed to process command: {}", e);
-                    exit(exits::RUNTIME_ERROR);
+    let res: Result<Modifications, ApplicationError> = match matches.command {
+        Commands::Verify {} => verify(hf),
+        Commands::Show {} => hf.show(),
+        Commands::Add { hostname, ip } => match hf.add(hostname, ip) {
+            Ok(m) => {
+                let r = hf.write();
+                if r.is_err() {
+                    Err(r.err().unwrap())
+                } else {
+                    Ok(m)
                 }
             }
-        }
-        Some("replace") => {
-            let mymatches = matches
-                .subcommand_matches("replace")
-                .expect("Cannot be a subcommand and not be a subcommand");
 
-            let ip = if mymatches.is_present("ip") {
-                mymatches.value_of("ip")
-            } else {
-                None
-            };
-            match hf.replace(mymatches.value_of("hostname"), ip) {
-                Ok(()) => hf.write(),
-                Err(e) => {
-                    eprintln!("Failed to process command: {}", e);
-                    exit(exits::RUNTIME_ERROR);
+            Err(e) => {
+                eprintln!("Failed to process command: {}", e);
+                exit(exits::RUNTIME_ERROR);
+            }
+        },
+        Commands::Replace { hostname, ip } => match hf.replace(hostname, ip) {
+            Ok(m) => {
+                let r = hf.write();
+                if r.is_err() {
+                    Err(r.err().unwrap())
+                } else {
+                    Ok(m)
                 }
             }
-        }
-        Some("delete") => {
-            let mymatches = matches
-                .subcommand_matches("delete")
-                .expect("Cannot be a subcommand and not be a subcommand");
-
-            match hf.delete(mymatches.value_of("entry")) {
-                Ok(()) => hf.write(),
-                Err(e) => {
-                    eprintln!("Failed to process command: {}", e);
-                    exit(exits::RUNTIME_ERROR);
+            Err(e) => {
+                eprintln!("Failed to process command: {}", e);
+                exit(exits::RUNTIME_ERROR);
+            }
+        },
+        Commands::Delete { entry } => match hf.delete(entry) {
+            Ok(m) => {
+                let r = hf.write();
+                if r.is_err() {
+                    Err(r.err().unwrap())
+                } else {
+                    Ok(m)
                 }
             }
-        }
-        Some(x) => {
-            println!("Unimplemented command {} called", x);
-            unimplemented!()
-        }
-        _ => {
-            println!("No subcommand given");
-            unimplemented!()
-        }
+            Err(e) => {
+                eprintln!("Failed to process command: {}", e);
+                exit(exits::RUNTIME_ERROR);
+            }
+        },
     };
 
     match res {
-        Ok(_) => {
+        Ok(m) => {
+            print_status(m);
             exit(exits::SUCCESS);
         }
         Err(e) => {
@@ -174,22 +93,42 @@ fn main() {
     };
 }
 
-fn get_filename<'a>(matches: &'a clap::ArgMatches) -> &'a str {
-    match matches.value_of("file") {
-        Some(x) => x,
-        _ => "/etc/hosts",
+fn print_status(mods: Modifications) {
+    if mods.added_entries > 0 {
+        println!(
+            "Added {}{}{} entries",
+            color::Fg(color::Green),
+            mods.added_entries,
+            color::Fg(color::Reset)
+        )
+    }
+    if mods.updated_entries > 0 {
+        println!(
+            "Updated {}{}{} entries",
+            color::Fg(color::Green),
+            mods.updated_entries,
+            color::Fg(color::Reset)
+        )
+    }
+    if mods.removed_entries > 0 {
+        println!(
+            "Removed {}{}{} entries",
+            color::Fg(color::Green),
+            mods.removed_entries,
+            color::Fg(color::Reset)
+        )
     }
 }
 
 /// Verify that the host file is parsable
-fn verify(hf: HostFile) -> Result<(), ApplicationError> {
+fn verify(hf: HostFile) -> Result<Modifications, ApplicationError> {
     println!(
         "Hostsfile is readable and contains {}{}{} entries.",
         color::Fg(color::Green),
-        hf.entries.unwrap_or_else(Vec::new).len(),
+        hf.entries.unwrap_or_default().len(),
         color::Fg(color::Reset),
     );
-    Ok(())
+    Ok(Modifications::new())
 }
 
 mod exits {
