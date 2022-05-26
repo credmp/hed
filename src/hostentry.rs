@@ -3,6 +3,8 @@ use std::{fmt, io::Write, net::IpAddr, str::FromStr, string::ParseError};
 use regex::Regex;
 use termion::color;
 
+use crate::utils::Modifications;
+
 #[derive(Debug, Clone)]
 pub struct HostEntry {
     pub ip: Option<IpAddr>,
@@ -150,7 +152,9 @@ impl HostEntry {
     ///
     /// - Removing an alias
     /// - Remove the name, chosing the shortest alias as the new name
-    pub(crate) fn remove_hostname(&mut self, name: &str) -> HostEntry {
+    pub(crate) fn remove_hostname(&mut self, name: &str) -> (Modifications, HostEntry) {
+        let mut mods = Modifications::new();
+
         // if it is the name that needs to be removed
         if let Some(n) = &self.name {
             if n == name {
@@ -167,17 +171,22 @@ impl HostEntry {
                     for x in aliasses {
                         if !shortest.eq(x) {
                             others.push(x.to_owned());
+                        } else {
+                            mods.updated_entries += 1;
                         }
                     }
-                    return HostEntry {
-                        ip: self.ip,
-                        name: Some(shortest),
-                        aliasses: Some(others),
-                        comment: self.comment.clone(),
-                    };
+                    return (
+                        mods,
+                        HostEntry {
+                            ip: self.ip,
+                            name: Some(shortest),
+                            aliasses: Some(others),
+                            comment: self.comment.clone(),
+                        },
+                    );
                 } else {
                     // name is the same, and no aliasses... should not happen
-                    return HostEntry::empty();
+                    return (mods, HostEntry::empty());
                 }
             } else if let Some(aliasses) = &self.aliasses {
                 //                let names = aliasses.as_ref().unwrap();
@@ -185,17 +194,22 @@ impl HostEntry {
                 for x in aliasses {
                     if name != x {
                         others.push(x.to_owned());
+                    } else {
+                        mods.updated_entries += 1;
                     }
                 }
-                return HostEntry {
-                    ip: self.ip,
-                    name: self.name.clone(),
-                    aliasses: Some(others),
-                    comment: self.comment.clone(),
-                };
+                return (
+                    mods,
+                    HostEntry {
+                        ip: self.ip,
+                        name: self.name.clone(),
+                        aliasses: Some(others),
+                        comment: self.comment.clone(),
+                    },
+                );
             }
         }
-        self.clone()
+        (mods, self.clone())
     }
 }
 
@@ -322,7 +336,8 @@ mod test {
         };
 
         assert!(he.can_delete("arjenwiersma.nl"));
-        assert_eq!(he.remove_hostname("arjenwiersma.nl"), HostEntry::empty());
+        let res = he.remove_hostname("arjenwiersma.nl");
+        assert_eq!(res.1, HostEntry::empty());
 
         he.aliasses = Some(vec![
             String::from("demo.arjenwiersma.nl"),
@@ -331,7 +346,7 @@ mod test {
 
         assert!(!he.can_delete("arjenwiersma.nl"));
         assert_eq!(
-            he.remove_hostname("arjenwiersma.nl"),
+            he.remove_hostname("arjenwiersma.nl").1,
             HostEntry {
                 ip: Some(ip),
                 name: Some(String::from("d.arjenwiersma.nl")),
@@ -341,7 +356,7 @@ mod test {
         );
 
         assert_eq!(
-            he.remove_hostname("demo.arjenwiersma.nl"),
+            he.remove_hostname("demo.arjenwiersma.nl").1,
             HostEntry {
                 ip: Some(ip),
                 name: Some(String::from("arjenwiersma.nl")),
@@ -475,7 +490,7 @@ mod test {
 
     #[test]
     fn test_from_string_entry() {
-        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl".parse().unwrap();        
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl".parse().unwrap();
 
         assert_eq!("arjenwiersma.nl", entry.name.unwrap());
         assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
@@ -483,7 +498,7 @@ mod test {
 
     #[test]
     fn test_from_string_empty_entry() {
-        let entry: HostEntry = "".parse().unwrap();        
+        let entry: HostEntry = "".parse().unwrap();
 
         assert_eq!(None, entry.name);
         assert_eq!(None, entry.ip);
@@ -491,7 +506,7 @@ mod test {
 
     #[test]
     fn test_from_string_entry_with_alias() {
-        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2".parse().unwrap();        
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2".parse().unwrap();
 
         assert_eq!("arjenwiersma.nl", entry.name.unwrap());
         assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
@@ -500,18 +515,19 @@ mod test {
 
     #[test]
     fn test_from_string_entry_with_alias_and_comment() {
-        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2 # testing".parse().unwrap();        
+        let entry: HostEntry = "1.1.1.1    arjenwiersma.nl alias1 alias2 # testing"
+            .parse()
+            .unwrap();
 
         assert_eq!("arjenwiersma.nl", entry.name.unwrap());
         assert_eq!("1.1.1.1".parse::<IpAddr>().unwrap(), entry.ip.unwrap());
-        assert_eq!(entry.aliasses.unwrap(), vec!["alias1", "alias2"]); 
+        assert_eq!(entry.aliasses.unwrap(), vec!["alias1", "alias2"]);
         assert_eq!(entry.comment.unwrap(), "testing");
-   }
+    }
 
-    
     #[test]
     fn test_from_string_comment() {
-        let entry: HostEntry = "# from string".parse().unwrap();        
+        let entry: HostEntry = "# from string".parse().unwrap();
 
         assert_eq!("from string", entry.comment.unwrap());
     }

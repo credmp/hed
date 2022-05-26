@@ -13,3 +13,26 @@ where
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
+
+#[derive(Default, PartialEq, Debug)]
+pub struct Modifications {
+    pub updated_entries: i32,
+    pub removed_entries: i32,
+    pub added_entries: i32,
+}
+
+impl Modifications {
+    pub fn new() -> Modifications {
+        Modifications {
+            updated_entries: 0,
+            removed_entries: 0,
+            added_entries: 0,
+        }
+    }
+
+    pub(crate) fn merge(&mut self, m: Modifications) {
+        self.updated_entries += m.updated_entries;
+        self.removed_entries += m.removed_entries;
+        self.added_entries += m.added_entries;
+    }
+}

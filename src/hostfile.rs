@@ -6,11 +6,10 @@ use std::{
     net::IpAddr,
     path::Path,
 };
-use termion::color;
 
 use crate::errors::ApplicationError;
 use crate::hostentry::HostEntry;
-use crate::utils::read_lines;
+use crate::utils::{read_lines, Modifications};
 
 #[derive(Debug)]
 pub struct HostFile {
@@ -69,11 +68,9 @@ impl HostFile {
         match read_lines(&self.filename) {
             Ok(lines) => {
                 self.entries = lines
-                    .map(|l| {
-                        match l.unwrap_or_else(|_e| "".to_string()).parse() {
-                            Ok(s) => Some(s),
-                            _ => None,                            
-                        }
+                    .map(|l| match l.unwrap_or_else(|_e| "".to_string()).parse() {
+                        Ok(s) => Some(s),
+                        _ => None,
                     })
                     .collect();
                 Ok(())
@@ -82,12 +79,14 @@ impl HostFile {
         }
     }
 
-    pub(crate) fn remove_ip(&mut self, entry: String) {
+    pub(crate) fn remove_ip(&mut self, entry: String) -> Modifications {
+        let mut mods = Modifications::new();
+
         let ip: IpAddr = match entry.parse() {
             Ok(x) => x,
             Err(e) => {
                 eprintln!("Invalid IP address given: {}", e);
-                return;
+                return mods;
             }
         };
 
@@ -97,19 +96,27 @@ impl HostFile {
                 en.into_iter()
                     .filter(|he| {
                         if he.ip.is_some() {
-                            he.ip.unwrap() != ip
+                            if he.ip.unwrap() != ip {
+                                true
+                            } else {
+                                mods.removed_entries += 1;
+                                false
+                            }
                         } else {
                             true
                         }
                     })
                     .collect::<Vec<_>>(),
             );
+            mods
         } else {
             eprintln!("No entries to delete");
+            mods
         }
     }
 
-    pub(crate) fn remove_name(&mut self, name: String) {
+    pub(crate) fn remove_name(&mut self, name: String) -> Modifications {
+        let mut mods = Modifications::new();
         // if the name is the `name` and no aliasses, remove the entry
 
         if self.entries.is_some() {
@@ -118,13 +125,20 @@ impl HostFile {
             let mut updated: Vec<HostEntry> = vec![];
             for mut entry in en {
                 if !entry.can_delete(name.as_str()) {
-                    updated.push(entry.remove_hostname(name.as_str()));
+                    let (m, e) = entry.remove_hostname(name.as_str());
+                    mods.updated_entries += m.updated_entries;
+                    mods.removed_entries += m.removed_entries;
+                    updated.push(e);
+                } else {
+                    mods.removed_entries += 1;
                 }
             }
 
-                self.entries = Some(updated);
+            self.entries = Some(updated);
+            mods
         } else {
             eprintln!("No entries to delete");
+            mods
         }
 
         // else the entry needs to be update, if it is there
@@ -135,7 +149,9 @@ impl HostFile {
         &mut self,
         hostname: String,
         ip: Option<String>,
-    ) -> Result<(), crate::errors::ApplicationError> {
+    ) -> Result<Modifications, crate::errors::ApplicationError> {
+        let mut mods = Modifications::new();
+
         let ip_address: Option<IpAddr> = match ip {
             Some(x) => match x.parse() {
                 Ok(y) => Some(y),
@@ -158,34 +174,38 @@ impl HostFile {
                     } else {
                         i.add_alias(hostname.as_str());
                     }
-                    return Ok(());
+                    mods.updated_entries += 1;
+                    return Ok(mods);
                 } else if i.has_ip(&ip_a) {
                     return Err(ApplicationError::IpAlreadyInUse(format!("{}", i)));
                 } else if !i.has_ip(&ip_a) && i.has_name(hostname.as_str()) {
                     return Err(ApplicationError::HostnameAlreadyInUse(format!("{}", i)));
                 }
             }
+            mods.added_entries += 1;
             self.add_host_entry(HostEntry {
                 ip: ip_address,
                 name: Some(hostname),
                 comment: None,
                 aliasses: None,
             });
-            Ok(())
+            Ok(mods)
         } else {
             for item in self.entries.iter_mut().flatten() {
                 let i = item;
 
                 if i.can_resolve_host(hostname.as_str()) && !i.has_name(hostname.as_str()) {
                     i.add_alias(hostname.as_str());
-                    return Ok(());
+                    mods.updated_entries += 1;
+                    return Ok(mods);
                 } else if i.can_hostname_resolve_domain(hostname.as_str()) {
                     i.switch_name_with_alias(hostname.as_str());
-                    return Ok(());
+                    mods.updated_entries += 1;
+                    return Ok(mods);
                 } else if i.has_name(hostname.as_str()) {
                     eprintln!("Hostname already exists in the hostfile");
                     // It already exists
-                    return Ok(());
+                    return Ok(mods);
                 }
             }
 
@@ -198,7 +218,8 @@ impl HostFile {
         &mut self,
         hostname: String,
         ip: Option<String>,
-    ) -> Result<(), ApplicationError> {
+    ) -> Result<Modifications, ApplicationError> {
+        let mut mods = Modifications::new();
         let ip_address: Option<IpAddr> = match ip {
             Some(x) => match x.parse() {
                 Ok(y) => Some(y),
@@ -212,14 +233,15 @@ impl HostFile {
 
             if i.name.is_some() && i.name.as_ref().unwrap() == hostname.as_str() {
                 i.ip = ip_address;
-                return Ok(());
+                mods.updated_entries += 1;
+                return Ok(mods);
             }
         }
-        Ok(())
+        Ok(mods)
     }
 
     /// Color print the hosts file
-    pub(crate) fn show(&self) -> Result<(), ApplicationError> {
+    pub(crate) fn show(&self) -> Result<Modifications, ApplicationError> {
         let mut out = std::io::stdout();
         if self.entries.is_some() {
             for item in self.entries.as_ref().unwrap() {
@@ -228,37 +250,26 @@ impl HostFile {
                 }
             }
         }
-        Ok(())
+        Ok(Modifications::new())
     }
 
     /// Delete an name or IP address from the hostsfile
-    pub(crate) fn delete(&mut self, entry: String) -> Result<(), ApplicationError> {
+    pub(crate) fn delete(&mut self, entry: String) -> Result<Modifications, ApplicationError> {
+        let mut mods = Modifications::new();
         let is_ip = match entry.parse::<IpAddr>() {
             Ok(_e) => true,
             Err(_e) => false,
         };
 
-        let c = self.entries.as_ref().unwrap().len();
-
         if is_ip {
-            self.remove_ip(entry);
+            let m = self.remove_ip(entry);
+            mods.merge(m);
         } else {
-            self.remove_name(entry);
+            let m = self.remove_name(entry);
+            mods.merge(m);
         }
 
-        let updated = c - self.entries.as_ref().unwrap().len();
-        if updated > 0 {
-            println!(
-                "Removed {}{}{} entries",
-                color::Fg(color::Green),
-                c - self.entries.as_ref().unwrap().len(),
-                color::Fg(color::Reset)
-            );
-        } else {
-            println!("No entries were removed, some could have been updated though",);
-        }
-
-        Ok(())
+        Ok(mods)
     }
 }
 
@@ -279,29 +290,43 @@ mod tests {
         // ADD functions
 
         // add it
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
 
         // remove it by ip
         hf.delete(String::from("127.0.0.1")).expect("Should delete");
+        println!("{:?}", hf);
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
 
         // remove it by name
-        hf.delete(String::from("arjenwiersma.nl")).expect("Should delete");
+        hf.delete(String::from("arjenwiersma.nl"))
+            .expect("Should delete");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
         // add a subdomain first
-        hf.add(String::from("me.arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("me.arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
 
         // add parent domain after
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding parent domain");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding parent domain");
 
         // ensure the parent domain is the `name` property
         assert!(hf.entries.is_some());
@@ -319,11 +344,17 @@ mod tests {
         assert_eq!(hf.entries.as_ref().unwrap().len(), 0);
 
         // parent first
-        hf.add(String::from("arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         // subdomain second
-        hf.add(String::from("demo.arjenwiersma.nl"), Some(String::from("127.0.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("demo.arjenwiersma.nl"),
+            Some(String::from("127.0.0.1")),
+        )
+        .expect("Adding host");
         assert!(hf.entries.is_some());
         assert_eq!(hf.entries.as_ref().unwrap().len(), 1);
         let he = hf.entries.as_ref().unwrap().get(0).unwrap();
@@ -336,15 +367,21 @@ mod tests {
         );
 
         // a second alias is added
-        hf.add(String::from("demo2.arjenwiersma.nl"), Some(String::from("127.1.0.1")))
-            .expect("Adding host");
+        hf.add(
+            String::from("demo2.arjenwiersma.nl"),
+            Some(String::from("127.1.0.1")),
+        )
+        .expect("Adding host");
         assert_eq!(hf.entries.as_ref().unwrap().len(), 2);
 
         // REPLACE function
 
         // replace the ip address of the domain
-        hf.replace(String::from("arjenwiersma.nl"), Some(String::from("192.168.0.1")))
-            .expect("should replace");
+        hf.replace(
+            String::from("arjenwiersma.nl"),
+            Some(String::from("192.168.0.1")),
+        )
+        .expect("should replace");
         let e = hf.entries.clone();
         let en = e.unwrap().get(0).unwrap().clone();
         assert_eq!(en.name.unwrap(), "arjenwiersma.nl");
@@ -353,5 +390,4 @@ mod tests {
             "192.168.0.1".parse::<IpAddr>().expect("should read ip")
         );
     }
-
 }
