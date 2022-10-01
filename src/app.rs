@@ -1,4 +1,4 @@
-use clap::{AppSettings, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
 #[clap(name = env!("CARGO_PKG_NAME"))]
@@ -23,7 +23,7 @@ pub enum Commands {
     /// List your current hostfile
     Show {},
     /// Add a host to your hostfile
-    #[clap(setting(AppSettings::ArgRequiredElseHelp))]
+    #[command(arg_required_else_help = true)]
     Add {
         /// Hostname to add to the hostfile
         #[clap(required = true, index = 1)]
@@ -33,7 +33,7 @@ pub enum Commands {
         ip: Option<String>,
     },
     /// Replace the IP address for a hostname in your hostfile
-    #[clap(setting(AppSettings::ArgRequiredElseHelp))]
+    #[command(arg_required_else_help = true)]
     Replace {
         /// Hostname of the entry to replace
         #[clap(required = true, index = 1)]
