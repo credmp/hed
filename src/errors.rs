@@ -24,6 +24,9 @@ pub enum ApplicationError {
     #[error("An entry exists with the hostname, but with a different IP:\n{0}")]
     HostnameAlreadyInUse(String),
 
+    #[error("No such hostname available in the hostfile: {0}")]
+    HostnameDoesNotExist(String),
+
     #[error("Could not add host, no parent domain to resolve it. This means that no parent domain exists for the given hostname, try adding it with an IP address, it will be the first entry for this host.")]
     NoParentDomain(),
 

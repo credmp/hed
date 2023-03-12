@@ -42,6 +42,15 @@ pub enum Commands {
         #[clap(required = true, index = 2)]
         ip: Option<String>,
     },
+    /// Alias a name to an existing hostname
+    Alias {
+        /// Hostname of the entry to replace
+        #[clap(required = true, index = 1)]
+        hostname: String,
+        /// Alias to add as a hostname
+        #[clap(required = true, index = 2)]
+        alias: String,
+    },
     /// Delete a host from your hostfile
     Delete {
         /// IP or hostname to remove
