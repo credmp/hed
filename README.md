@@ -199,6 +199,14 @@ hed delete 127.1.1.1
 
 Will remove the entire record even if there are many aliases defined.
 
+### Add an alias 
+
+``` sh
+hed alias demo.example.com arjenwiersma.nl
+```
+
+Add a non-subdomain alias to a hostname. This is useful when a host (ip) has many different hostnames. Instead of adding an entry for every unique top level domain they can be added as aliasses.
+
 ### Testing
 
 Use the `--file` parameter to test the features of `hed` on a file that is not your `hosts` file.
