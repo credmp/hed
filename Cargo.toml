@@ -1,6 +1,6 @@
 [package]
 name = "hed"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2018"
 license = "GPL-3.0-or-later"
 authors = ["Arjen Wiersma <arjen@wiersma.org>"]
@@ -16,8 +16,8 @@ readme = "README.md"
 name = "hed"
 
 [dependencies]
-clap = {version = "3", features = ["derive"]}
-color-eyre = "0.5.11"
+clap = {version = "4", features = ["derive"]}
+color-eyre = "0.6.2"
 faccess = "0.2.3"
 regex = "1.5.4"
 sudo = "0.6.0"

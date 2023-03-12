@@ -1,3 +1,7 @@
+2023-03-12  Arjen Wiersma  <arjen@wiersma.org>
+
+	* src/hostfile.rs: Add an `alias` function to add non-subdomain aliasses to a host entry
+
 2021-10-25  Arjen Wiersma  <arjen@wiersma.org>
 
 	* src/hostfile.rs: parent domains can be added when a child domain already exists, optimizing the entry.

@@ -271,11 +271,31 @@ impl HostFile {
 
         Ok(mods)
     }
+
+    /// Add an alias to the hostname, there is no check on overlap so it is not limited to subdomains
+    pub(crate) fn alias(
+        &mut self,
+        hostname: String,
+        alias: String,
+    ) -> Result<Modifications, ApplicationError> {
+        let mut mods = Modifications::new();
+
+        for item in self.entries.iter_mut().flatten() {
+            let i = item;
+
+            if i.name.is_some() && i.has_name(&hostname) {
+                i.add_alias(&alias);
+                mods.updated_entries += 1;
+                return Ok(mods);
+            }
+        }
+        Err(ApplicationError::HostnameDoesNotExist(hostname))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::hostfile::HostFile;
+    use crate::HostFile;
     use std::net::IpAddr;
 
     #[test]
@@ -388,6 +408,30 @@ mod tests {
         assert_eq!(
             en.ip.unwrap(),
             "192.168.0.1".parse::<IpAddr>().expect("should read ip")
+        );
+
+        match hf.alias(
+            String::from("demo2.arjenwiersma.org"),
+            String::from("loempia.nl"),
+        ) {
+            Ok(_) => assert_eq!(true, false), // this should be done with PartialEq, fix later
+            Err(_) => {}
+        }
+
+        hf.alias(
+            String::from("demo2.arjenwiersma.nl"),
+            String::from("loempia.nl"),
+        )
+        .expect("Should add an alias");
+
+        assert_eq!(
+            hf.entries
+                .as_ref()
+                .unwrap()
+                .get(1)
+                .unwrap()
+                .has_name("loempia.nl"),
+            true
         );
     }
 }

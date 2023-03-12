@@ -65,6 +65,20 @@ fn main() {
                 exit(exits::RUNTIME_ERROR);
             }
         },
+        Commands::Alias { hostname, alias } => match hf.alias(hostname, alias) {
+            Ok(m) => {
+                let r = hf.write();
+                if r.is_err() {
+                    Err(r.err().unwrap())
+                } else {
+                    Ok(m)
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to process command: {}", e);
+                exit(exits::RUNTIME_ERROR);
+            }
+        },
         Commands::Delete { entry } => match hf.delete(entry) {
             Ok(m) => {
                 let r = hf.write();
