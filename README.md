@@ -82,11 +82,11 @@
 
 [![hed screencast][product-screenshot]](https://github.com/credmp/hed)
 
-`hed` allows you to manipulate your hosts file from the command-line. By providing safe and easy commands you can add new hosts and aliases to your environment.
+`hed` is a command-line tool that enables users to manage their hosts file with ease and security. With simple yet powerful commands, `hed` allows you to add new hosts and aliases to your environment without having to manually edit the file. By automating this process, `hed` saves you time and minimizes the risk of errors or security issues. Whether you need to add a new development domain, block a malicious website, or create custom aliases for frequently used IP addresses, `hed` provides a safe and convenient solution for managing your hosts file. Try it out and see how it can simplify your workflow and improve your productivity.
 
-This tool was inspired by my students to whom I teach a Basic Cyber Security class. In this class we utilize [Hack The Box as a learning platform](https://www.youtube.com/watch?v=3b2Xul3gu_8&t=3592s) and most students struggle with editing the `hosts` file when they get started. To make this easier for them I wrote a tool that gives them a safe means of adding and removing hosts in this file.
+I was inspired to create this tool by my students, who are learning the basics of cybersecurity in my class. As part of our curriculum, we use [Hack The Box as a learning platform](https://www.youtube.com/watch?v=3b2Xul3gu_8&t=3592s), and many students find it challenging to edit the hosts file when they first start. To simplify this process and provide a safe solution, I developed this tool that allows them to add and remove hosts in the file with ease. By automating this task and providing a user-friendly interface, the tool helps students focus on learning the essential concepts of cybersecurity without getting bogged down in technical details. I'm proud of how this tool has helped my students, and I hope it can be useful for others as well.
 
-The tool is to be used as a regular user, it will elevate privileges when it requires it by calling `sudo` and respawning the process.
+This tool is designed to be used by regular users, and it automatically elevates privileges when necessary by invoking sudo and respawning the process.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
