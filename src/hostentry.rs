@@ -24,7 +24,7 @@ impl HostEntry {
     }
 
     pub fn color_print<W: Write>(&self, f: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        if self.ip == None && self.comment != None {
+        if self.ip.is_none() && self.comment.is_some() {
             writeln!(
                 f,
                 "{}# {}{}",
@@ -32,7 +32,7 @@ impl HostEntry {
                 self.comment.as_ref().unwrap(),
                 color::Fg(color::Reset),
             )?;
-        } else if self.ip != None {
+        } else if self.ip.is_some() {
             write!(
                 f,
                 "{}{}\t{}{}\t{}{}",
@@ -284,12 +284,10 @@ impl FromStr for HostEntry {
 
 impl fmt::Display for HostEntry {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if self.ip == None && self.comment != None {
+        if self.ip.is_none() && self.comment.is_some() {
             write!(f, "# {}", self.comment.as_ref().unwrap(),)
-        } else if self.ip != None {
-            if let Err(e) = write!(f, "{}\t{}", self.ip.unwrap(), self.name.as_ref().unwrap(),) {
-                return Err(e);
-            }
+        } else if self.ip.is_some() {
+            write!(f, "{}\t{}", self.ip.unwrap(), self.name.as_ref().unwrap(),)?;
             if self.aliasses.is_some() {
                 write!(
                     f,

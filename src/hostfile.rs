@@ -42,7 +42,7 @@ impl HostFile {
 
         let display = path.display();
 
-        let mut file = match File::create(&path) {
+        let mut file = match File::create(path) {
             Err(why) => panic!("couldn't create {}: {}", display, why),
             Ok(file) => file,
         };
@@ -424,14 +424,13 @@ mod tests {
         )
         .expect("Should add an alias");
 
-        assert_eq!(
+        assert!(
             hf.entries
                 .as_ref()
                 .unwrap()
                 .get(1)
                 .unwrap()
-                .has_name("loempia.nl"),
-            true
+                .has_name("loempia.nl")
         );
     }
 }
