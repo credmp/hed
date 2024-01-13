@@ -1,3 +1,5 @@
 /target
 /samples/*.bak
 /lcov.info
+
+.direnv
