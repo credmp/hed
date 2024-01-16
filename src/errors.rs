@@ -33,6 +33,9 @@ pub enum ApplicationError {
     #[error("You should not see this message, if you do, please log an bug report at https://github.com/credmp/hed, it is very appreciated!")]
     FileABugReport(),
 
+		#[error("File is not parseable: {0}")]
+		FileNotParseable(String),
+
     /// Represents all other cases of `std::io::Error`.
     #[error(transparent)]
     IOError(#[from] std::io::Error),

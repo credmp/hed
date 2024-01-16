@@ -2,7 +2,6 @@ use faccess::PathExt;
 use std::io::Write;
 use std::{
     fs::{self, File},
-    io::{Error, ErrorKind},
     net::IpAddr,
     path::Path,
 };
@@ -63,7 +62,7 @@ impl HostFile {
         Ok(())
     }
 
-    pub fn parse(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn parse(&mut self) -> Result<(), ApplicationError> {
         //println!("Reading file {}", self.filename);
         match read_lines(&self.filename) {
             Ok(lines) => {
@@ -75,7 +74,7 @@ impl HostFile {
                     .collect();
                 Ok(())
             }
-            Err(e) => Err(Box::new(Error::new(ErrorKind::Other, e))),
+            Err(e) => Err(ApplicationError::FileNotParseable(e.to_string())),
         }
     }
 
@@ -95,16 +94,11 @@ impl HostFile {
             self.entries = Some(
                 en.into_iter()
                     .filter(|he| {
-                        if he.ip.is_some() {
-                            if he.ip.unwrap() != ip {
-                                true
-                            } else {
-                                mods.removed_entries += 1;
-                                false
-                            }
-                        } else {
-                            true
+                        if he.ip.is_some() && he.ip.unwrap() == ip {
+                            mods.removed_entries += 1;
+                            return false;
                         }
+                        true
                     })
                     .collect::<Vec<_>>(),
             );
@@ -424,13 +418,12 @@ mod tests {
         )
         .expect("Should add an alias");
 
-        assert!(
-            hf.entries
-                .as_ref()
-                .unwrap()
-                .get(1)
-                .unwrap()
-                .has_name("loempia.nl")
-        );
+        assert!(hf
+            .entries
+            .as_ref()
+            .unwrap()
+            .get(1)
+            .unwrap()
+            .has_name("loempia.nl"));
     }
 }

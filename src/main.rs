@@ -29,7 +29,7 @@ fn main() {
     };
 
     if let Err(e) = hf.parse() {
-        eprintln!("Failed to parse the hostfile, this should not happen unless you are using --file to override the file. The error message is: {}", e);
+        eprintln!("Failed to parse the hostfile, this should not happen unless you are using --file to override the file.\nThe error message is: {}", e);
         exit(exits::RUNTIME_ERROR);
     }
 
