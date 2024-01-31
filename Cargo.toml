@@ -1,41 +1,6 @@
-[package]
-name = "hed"
-version = "0.1.9"
-edition = "2018"
-license = "GPL-3.0-or-later"
-authors = ["Arjen Wiersma <arjen@wiersma.org>"]
-categories = ["command-line-utilities"]
-repository = "https://github.com/credmp/hed"
-description = "Manage your hosts file from the command line."
-documentation = "https://github.com/credmp/hed"
-homepage = "https://github.com/credmp/hed#readme"
-keywords = ["cli", "hosts", "utility"]
-readme = "README.md"
-
-[[bin]]
-name = "hed"
-
-[dependencies]
-clap = {version = "4", features = ["derive"]}
-color-eyre = "0.6.2"
-faccess = "0.2.3"
-regex = "1.5.4"
-sudo = "0.6.0"
-termion = "1.5.6"
-thiserror = "1.0.29"
-
-[package.metadata.deb]
-maintainer = "Arjen Wiersma <arjen@wiersma.org>"
-copyright = "2021, Arjen Wiersma <arjen@wiersma.org>"
-license-file = ["LICENSE", "0"]
-extended-description = """\
-A tool to easily manage your hosts file from the command line.
-"""
-depends = "$auto"
-section = "utility"
-priority = "optional"
-assets = [
-    ["hed.1.gz", "usr/local/man/man1/hed.1.gz", "644"],
-    ["target/release/hed", "usr/bin/", "755"],
-    ["README.md", "usr/share/doc/hed/README.md", "644"],
+[workspace]
+resolver = "2"
+members = [
+		"hostfile",
+    "hed-cli"
 ]
