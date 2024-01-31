@@ -22,7 +22,7 @@ jobs:
     - name: Install cargo-deb
       run: cargo install cargo-deb
     - name: Create debian package
-      run: cargo deb
+      run: cargo deb -p hed
     - name: version
       run: echo "::set-output name=version::$(./target/release/hed --version)"
       id: version
