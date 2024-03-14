@@ -17,6 +17,7 @@
             pkgs.rust-analyzer
             pkgs.rustfmt
             pkgs.cargo-tarpaulin
+            pkgs.act
           ];
         };
       });

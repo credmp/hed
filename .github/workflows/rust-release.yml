@@ -9,11 +9,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  create-release:
 
     runs-on: ubuntu-latest
 
     steps:
+    - name: Setup | Rust
+      uses: ATiltedTree/setup-rust@v1
+      with:
+          rust-version: stable
+          components: clippy
     - uses: actions/checkout@v2
     - name: Build
       run: cargo build --release --verbose
